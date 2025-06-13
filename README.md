@@ -15,6 +15,7 @@ backend/
 │ │ ├── productController.js
 │ │ ├── authController.js
 │ │ └── userController.js
+│ │ └── cartController.js
 │ │
 │ ├── models/ # Modelos y acceso a base de datos
 │ │ ├── index.js
@@ -27,6 +28,7 @@ backend/
 │ │ ├── productRoutes.js
 │ │ ├── authRoutes.js
 │ │ └── userRoutes.js
+│ │ └── cartRoutes.js
 │ │
 │ ├── middlewares/ # Middlewares reutilizables
 │ │ ├── authMiddleware.js
@@ -61,9 +63,9 @@ backend/
 🔹 Nivel 1 – Básico / Medio
 ✅ Token con expiración automática (JWT) ✅
 ✅ Roles de usuario (admin, cliente) ✅
-✅ Control de permisos por rol (proteger rutas)
-✅ CRUD de productos protegido para admins
-🔍 Filtros, búsqueda por nombre en productos
+✅ Control de permisos por rol (proteger rutas) ✅
+✅ CRUD de productos protegido para admins ✅
+🔍 Filtros, búsqueda por nombre en productos ✅
 📄 Paginación de productos (ej. 10 por página)
 🎨 Elegir paleta de colores para el frontend
 🌐 Buscar webs de referencia para inspirar el diseño
@@ -85,3 +87,17 @@ backend/
 🔗 Conexión del backend con frontend (React u otro)
 🛡 Seguridad avanzada: rate limiting, XSS, validación profunda
 🧠 IA para búsquedas conversacionales (“quiero unos zapatos azules del número 45”)
+
+credenciales admin:
+
+{
+"email": "admin@tudominio.com",
+"password": "MiContraseñaAdmin123"
+}
+
+usuario de prueba:
+{
+"username": "juanpe",
+"email": "juanpe@example.com",
+"password": "123456"
+}

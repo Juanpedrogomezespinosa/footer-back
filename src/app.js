@@ -19,6 +19,11 @@ app.use("/api/products", require("./routes/productRoutes"));
 app.use("/api/users", require("./routes/userRoutes"));
 app.use("/api/auth", require("./routes/authRoutes"));
 
+// NUEVO: Rutas carrito protegidas con authMiddleware
+const authMiddleware = require("./middlewares/authMiddleware");
+const cartRoutes = require("./routes/cartRoutes");
+app.use("/api/cart", authMiddleware, cartRoutes);
+
 // Middleware de manejo de errores
 const errorHandler = require("./middlewares/errorHandler");
 app.use(errorHandler);
