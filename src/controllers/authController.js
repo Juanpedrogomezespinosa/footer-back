@@ -3,18 +3,42 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const config = require("../config/env");
 
+// Genera token con expiración de 4 horas
+const generateToken = (user) => {
+  return jwt.sign(
+    {
+      userId: user.id,
+      role: user.role,
+    },
+    config.jwtSecret,
+    { expiresIn: "4h" }
+  );
+};
+
 exports.register = async (req, res, next) => {
   try {
-    const { username, email, password } = req.body;
+    const { username, email, password, role } = req.body;
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await User.create({
       username,
       email,
       password: hashedPassword,
+      role: role || "client", // por defecto "client"
     });
 
-    res.status(201).json({ message: "Usuario registrado", user });
+    const token = generateToken(user);
+
+    res.status(201).json({
+      message: "Usuario registrado",
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+      },
+      token,
+    });
   } catch (error) {
     next(error);
   }
@@ -32,10 +56,18 @@ exports.login = async (req, res, next) => {
     if (!isValid)
       return res.status(401).json({ message: "Credenciales inválidas" });
 
-    const token = jwt.sign({ userId: user.id }, config.jwtSecret, {
-      expiresIn: "1h",
+    const token = generateToken(user);
+
+    res.json({
+      message: "Inicio de sesión exitoso",
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+      },
+      token,
     });
-    res.json({ token });
   } catch (error) {
     next(error);
   }
