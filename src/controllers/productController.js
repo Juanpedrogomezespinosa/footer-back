@@ -1,8 +1,27 @@
+const { Op } = require("sequelize");
 const { Product } = require("../models");
 
 exports.getAllProducts = async (req, res, next) => {
   try {
-    const products = await Product.findAll();
+    const { name, minPrice, maxPrice, stock } = req.query;
+
+    const where = {};
+
+    if (name) {
+      where.name = { [Op.like]: `%${name}%` };
+    }
+
+    if (minPrice || maxPrice) {
+      where.price = {};
+      if (minPrice) where.price[Op.gte] = Number(minPrice);
+      if (maxPrice) where.price[Op.lte] = Number(maxPrice);
+    }
+
+    if (stock === "true") {
+      where.stock = { [Op.gt]: 0 };
+    }
+
+    const products = await Product.findAll({ where });
     res.json(products);
   } catch (error) {
     next(error);
