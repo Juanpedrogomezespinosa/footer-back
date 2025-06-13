@@ -31,6 +31,7 @@ backend/
 │ ├── middlewares/ # Middlewares reutilizables
 │ │ ├── authMiddleware.js
 │ │ └── errorHandler.js
+│ │ ├── roleMiddleware.js
 │ │
 │ ├── services/ # Lógica adicional desacoplada
 │ │ └── paymentService.js
@@ -39,9 +40,9 @@ backend/
 │ │ └── slugify.js
 │ │
 │ ├── app.js # Configuración de la app de Express
-│ └── server.js # Inicializa el servidor y escucha en un puerto
 │ └── resetDatabase.js
-
+│ └── hashPassword.js
+│ └── server.js # Inicializa el servidor y escucha en un puerto
 │
 ├── .env # Variables de entorno
 ├── package.json # Declaración de dependencias y scripts
@@ -55,3 +56,32 @@ backend/
 - Implementar roles de usuario y control de permisos.
 - Integrar pagos, emails o subir imágenes.
 - conectar con el front.
+  ✅ Lista de funcionalidades planificadas (ordenada por dificultad)
+
+🔹 Nivel 1 – Básico / Medio
+✅ Token con expiración automática (JWT) ✅
+✅ Roles de usuario (admin, cliente) ✅
+✅ Control de permisos por rol (proteger rutas)
+✅ CRUD de productos protegido para admins
+🔍 Filtros, búsqueda por nombre en productos
+📄 Paginación de productos (ej. 10 por página)
+🎨 Elegir paleta de colores para el frontend
+🌐 Buscar webs de referencia para inspirar el diseño
+🧩 Usar Miro.com para prototipado del diseño
+🛒 Navegación libre para usuarios planos (sin registro)
+🛒 Añadir artículos a la cesta y ver cesta para usuarios cliente
+
+🔸 Nivel 2 – Medio / Avanzado
+🖼 Subida de imágenes para productos (solo admin)
+🧺 Sistema de carrito de compras completo (por usuario cliente)
+💳 Integración con pagos (Stripe o PayPal)
+📧 Envío de emails tras registro o compra (configurar mail del sitio)
+🗂 Historial de pedidos por usuario
+📦 Gestión automática de stock al comprar
+🔐 Login con Gmail (OAuth 2.0 con Google)
+📝 Permisos para admins crear y editar anuncios/productos
+
+🔺 Nivel 3 – Avanzado
+🔗 Conexión del backend con frontend (React u otro)
+🛡 Seguridad avanzada: rate limiting, XSS, validación profunda
+🧠 IA para búsquedas conversacionales (“quiero unos zapatos azules del número 45”)

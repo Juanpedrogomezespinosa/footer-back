@@ -12,9 +12,12 @@ const authMiddleware = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, config.jwtSecret);
-    req.user = decoded;
+    req.user = decoded; // Incluye userId y role
     next();
   } catch (err) {
+    if (err.name === "TokenExpiredError") {
+      return res.status(401).json({ message: "Token expirado" });
+    }
     return res.status(401).json({ message: "Token inválido" });
   }
 };
