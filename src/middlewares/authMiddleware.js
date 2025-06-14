@@ -1,25 +1,22 @@
 const jwt = require("jsonwebtoken");
-const config = require("../config/env");
 
-const authMiddleware = (req, res, next) => {
-  const authHeader = req.headers.authorization;
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1]; // "Bearer TOKEN"
 
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({ message: "Token no proporcionado" });
-  }
+  if (!token) return res.status(401).json({ message: "Token requerido" });
 
-  const token = authHeader.split(" ")[1];
+  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+    if (err) return res.status(403).json({ message: "Token inválido" });
 
-  try {
-    const decoded = jwt.verify(token, config.jwtSecret);
-    req.user = decoded; // Incluye userId y role
+    // El payload tiene userId porque en authController usas userId
+    req.user = {
+      userId: decoded.userId, // Aquí coincide con payload del token
+      role: decoded.role,
+    };
+
     next();
-  } catch (err) {
-    if (err.name === "TokenExpiredError") {
-      return res.status(401).json({ message: "Token expirado" });
-    }
-    return res.status(401).json({ message: "Token inválido" });
-  }
+  });
 };
 
-module.exports = authMiddleware;
+module.exports = authenticateToken;

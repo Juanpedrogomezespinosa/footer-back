@@ -1,6 +1,5 @@
 const { DataTypes } = require("sequelize");
 const sequelize = require("../config/db");
-
 const Order = require("./orderModel");
 const Product = require("./productModel");
 
@@ -15,15 +14,14 @@ const OrderItem = sequelize.define(
     orderId: {
       type: DataTypes.INTEGER,
       allowNull: false,
-      field: "order_id",
     },
     productId: {
       type: DataTypes.INTEGER,
       allowNull: false,
-      field: "product_id",
     },
     quantity: {
       type: DataTypes.INTEGER,
+      allowNull: false,
       defaultValue: 1,
     },
     price: {
@@ -36,5 +34,11 @@ const OrderItem = sequelize.define(
     timestamps: false,
   }
 );
+
+OrderItem.belongsTo(Order, { foreignKey: "orderId" });
+Order.hasMany(OrderItem, { foreignKey: "orderId" });
+
+OrderItem.belongsTo(Product, { foreignKey: "productId" });
+Product.hasMany(OrderItem, { foreignKey: "productId" });
 
 module.exports = OrderItem;

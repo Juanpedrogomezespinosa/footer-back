@@ -1,6 +1,5 @@
 const { DataTypes } = require("sequelize");
 const sequelize = require("../config/db");
-
 const User = require("./userModel");
 
 const Order = sequelize.define(
@@ -14,7 +13,6 @@ const Order = sequelize.define(
     userId: {
       type: DataTypes.INTEGER,
       allowNull: false,
-      field: "user_id",
     },
     status: {
       type: DataTypes.ENUM("pendiente", "pagado", "enviado", "cancelado"),
@@ -23,11 +21,11 @@ const Order = sequelize.define(
     total: {
       type: DataTypes.DECIMAL(10, 2),
       allowNull: false,
+      defaultValue: 0,
     },
     createdAt: {
       type: DataTypes.DATE,
       defaultValue: DataTypes.NOW,
-      field: "created_at",
     },
   },
   {
@@ -35,5 +33,8 @@ const Order = sequelize.define(
     timestamps: false,
   }
 );
+
+Order.belongsTo(User, { foreignKey: "userId" });
+User.hasMany(Order, { foreignKey: "userId" });
 
 module.exports = Order;
