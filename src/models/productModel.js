@@ -24,12 +24,16 @@ const Product = sequelize.define(
       type: DataTypes.INTEGER,
       defaultValue: 0,
     },
+    created_at: {
+      type: DataTypes.DATE,
+    },
   },
   {
     tableName: "products",
     timestamps: true,
-    createdAt: "created_at",
-    updatedAt: false,
+    createdAt: "created_at", // Sequelize usará esta columna
+    updatedAt: false, // no usas updated_at por ahora
+    underscored: true, // por si agregas más modelos con snake_case
   }
 );
 
