@@ -7,7 +7,7 @@ const config = require("../config/env");
 const generateToken = (user) => {
   return jwt.sign(
     {
-      userId: user.id,
+      userId: user.id, // Esto genera el payload con userId
       role: user.role,
     },
     config.jwtSecret,
@@ -24,7 +24,7 @@ exports.register = async (req, res, next) => {
       username,
       email,
       password: hashedPassword,
-      role: role || "client", // por defecto "client"
+      role: role || "client",
     });
 
     const token = generateToken(user);

@@ -4,24 +4,32 @@ const Product = require("./productModel");
 const Order = require("./orderModel");
 const OrderItem = require("./orderItemModel");
 
-User.hasMany(Order, { foreignKey: "user_id", onDelete: "CASCADE" });
-Order.belongsTo(User, { foreignKey: "user_id" });
+// Relaciones entre modelos
 
+// Usuario tiene muchos pedidos
+User.hasMany(Order, { foreignKey: "userId", onDelete: "CASCADE" });
+Order.belongsTo(User, { foreignKey: "userId" });
+
+// Pedido tiene muchos items
+Order.hasMany(OrderItem, { foreignKey: "orderId", onDelete: "CASCADE" });
+OrderItem.belongsTo(Order, { foreignKey: "orderId" });
+
+// Producto tiene muchos items
+Product.hasMany(OrderItem, { foreignKey: "productId" });
+OrderItem.belongsTo(Product, { foreignKey: "productId" });
+
+// Muchos a muchos entre Pedido y Producto a través de OrderItem
 Order.belongsToMany(Product, {
   through: OrderItem,
-  foreignKey: "order_id",
-  otherKey: "product_id",
-});
-Product.belongsToMany(Order, {
-  through: OrderItem,
-  foreignKey: "product_id",
-  otherKey: "order_id",
+  foreignKey: "orderId",
+  otherKey: "productId",
 });
 
-Order.hasMany(OrderItem, { foreignKey: "order_id" }); // Esta línea la añadí
-OrderItem.belongsTo(Order, { foreignKey: "order_id" });
-OrderItem.belongsTo(Product, { foreignKey: "product_id" });
-Product.hasMany(OrderItem, { foreignKey: "product_id" });
+Product.belongsToMany(Order, {
+  through: OrderItem,
+  foreignKey: "productId",
+  otherKey: "orderId",
+});
 
 module.exports = {
   sequelize,

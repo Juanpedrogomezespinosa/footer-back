@@ -70,7 +70,7 @@ backend/
 🎨 Elegir paleta de colores para el frontend
 🌐 Buscar webs de referencia para inspirar el diseño
 🧩 Usar Miro.com para prototipado del diseño
-🛒 Navegación libre para usuarios planos (sin registro)
+🛒 Navegación libre para usuarios planos (sin registro)✅
 🛒 Añadir artículos a la cesta y ver cesta para usuarios cliente
 
 🔸 Nivel 2 – Medio / Avanzado
