@@ -1,4 +1,32 @@
 const { Order, OrderItem, Product } = require("../models");
+const { format } = require("date-fns");
+
+function formatOrder(order) {
+  if (!order) return null;
+
+  const orderData = order.toJSON ? order.toJSON() : order;
+
+  // Formatear fecha de creación del pedido
+  orderData.createdAt = orderData.createdAt
+    ? format(new Date(orderData.createdAt), "dd/MM/yyyy HH:mm")
+    : null;
+
+  if (orderData.OrderItems && orderData.OrderItems.length) {
+    orderData.OrderItems = orderData.OrderItems.map((item) => {
+      item.createdAt = item.createdAt
+        ? format(new Date(item.createdAt), "dd/MM/yyyy HH:mm")
+        : null;
+      if (item.Product) {
+        item.Product.created_at = item.Product.created_at
+          ? format(new Date(item.Product.created_at), "dd/MM/yyyy HH:mm")
+          : null;
+      }
+      return item;
+    });
+  }
+
+  return orderData;
+}
 
 // Obtener carrito pendiente del usuario
 exports.getCart = async (req, res, next) => {
@@ -19,7 +47,7 @@ exports.getCart = async (req, res, next) => {
       return res.json({ message: "Carrito vacío", items: [] });
     }
 
-    res.json(order);
+    res.json(formatOrder(order));
   } catch (error) {
     next(error);
   }
@@ -83,7 +111,10 @@ exports.addToCart = async (req, res, next) => {
       },
     });
 
-    res.json({ message: "Producto añadido al carrito", order: updatedOrder });
+    res.json({
+      message: "Producto añadido al carrito",
+      order: formatOrder(updatedOrder),
+    });
   } catch (error) {
     next(error);
   }
@@ -139,7 +170,10 @@ exports.updateCartItem = async (req, res, next) => {
       },
     });
 
-    res.json({ message: "Carrito actualizado", order: updatedOrder });
+    res.json({
+      message: "Carrito actualizado",
+      order: formatOrder(updatedOrder),
+    });
   } catch (error) {
     next(error);
   }
@@ -182,7 +216,7 @@ exports.removeCartItem = async (req, res, next) => {
       },
     });
 
-    res.json({ message: "Item eliminado", order: updatedOrder });
+    res.json({ message: "Item eliminado", order: formatOrder(updatedOrder) });
   } catch (error) {
     next(error);
   }
@@ -229,10 +263,21 @@ exports.checkout = async (req, res, next) => {
     order.status = "pagado";
     await order.save();
 
-    // Convertir a JSON para evitar errores de serialización
-    const orderJSON = order.toJSON ? order.toJSON() : order;
+    // Refrescar la orden con detalles para la respuesta
+    const updatedOrder = await Order.findOne({
+      where: { id: order.id },
+      include: [
+        {
+          model: OrderItem,
+          include: [Product],
+        },
+      ],
+    });
 
-    res.json({ message: "Compra realizada con éxito", order: orderJSON });
+    res.json({
+      message: "Compra realizada con éxito",
+      order: formatOrder(updatedOrder),
+    });
   } catch (error) {
     next(error);
   }
