@@ -72,10 +72,16 @@ backend/
 🧩 Usar Miro.com para prototipado del diseño
 🛒 Navegación libre para usuarios planos (sin registro)✅
 🛒 Añadir artículos a la cesta y ver cesta para usuarios cliente✅
+🍪 Añadir popup para las cookies
+🔎 filtros de búsqueda por nombre, rango de precio, stock, talla, color, marca ✅
+🔎 Añadir la posibilidad de filtrar en el front, por talla, color, etc.
+🔎 Añadir la posibilidad de buscar por texto en el navbar
+📊 Añadir la posibilidad de ver el historial de compras
+📊 Añadir la posibilidad de ver el historial de pedidos
 
 🔸 Nivel 2 – Medio / Avanzado
 🖼 Subida de imágenes para productos (solo admin)
-🧺 Sistema de carrito de compras completo (por usuario cliente)
+🧺 Sistema de carrito de compras completo (por usuario cliente)✅
 💳 Integración con pagos (Stripe o PayPal)
 📧 Envío de emails tras registro o compra (configurar mail del sitio)
 🗂 Historial de pedidos por usuario

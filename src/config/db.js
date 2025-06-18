@@ -18,4 +18,14 @@ const sequelize = new Sequelize(
   }
 );
 
+// Añade esto para sincronizar y actualizar el esquema
+sequelize
+  .sync({ alter: true })
+  .then(() => {
+    console.log("Base de datos sincronizada (tablas actualizadas).");
+  })
+  .catch((err) => {
+    console.error("Error sincronizando la base de datos:", err);
+  });
+
 module.exports = sequelize;

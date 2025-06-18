@@ -1,7 +1,7 @@
 const { Op } = require("sequelize");
-const { Product } = require("../models");
+const Product = require("../models/productModel");
 
-const validSortFields = ["created_at", "price", "name", "stock"];
+const validSortFields = ["price", "created_at", "name"];
 const validSortDirections = ["ASC", "DESC"];
 
 exports.getAllProducts = async (req, res, next) => {
@@ -11,6 +11,14 @@ exports.getAllProducts = async (req, res, next) => {
       minPrice,
       maxPrice,
       stock,
+      size,
+      color,
+      brand,
+      category,
+      gender,
+      material,
+      season,
+      is_new,
       page = 1,
       limit = 10,
       sortBy = "created_at",
@@ -19,16 +27,18 @@ exports.getAllProducts = async (req, res, next) => {
 
     page = parseInt(page);
     limit = parseInt(limit);
+
     if (isNaN(page) || page < 1) {
       return res.status(400).json({ message: "Página inválida" });
     }
+
     if (isNaN(limit) || limit < 1) {
       return res.status(400).json({ message: "Límite inválido" });
     }
 
     if (!validSortFields.includes(sortBy)) {
       return res.status(400).json({
-        message: `Campo de ordenación inválido. Campos válidos: ${validSortFields.join(
+        message: `Campo de ordenación inválido. Usa uno de: ${validSortFields.join(
           ", "
         )}`,
       });
@@ -55,6 +65,42 @@ exports.getAllProducts = async (req, res, next) => {
 
     if (stock === "true") {
       where.stock = { [Op.gt]: 0 };
+    } else if (stock === "false") {
+      where.stock = 0;
+    }
+
+    if (size) {
+      where.size = size;
+    }
+
+    if (color) {
+      where.color = color;
+    }
+
+    if (brand) {
+      where.brand = brand;
+    }
+
+    if (category) {
+      where.category = category;
+    }
+
+    if (gender) {
+      where.gender = gender;
+    }
+
+    if (material) {
+      where.material = material;
+    }
+
+    if (season) {
+      where.season = season;
+    }
+
+    if (is_new === "true") {
+      where.is_new = true;
+    } else if (is_new === "false") {
+      where.is_new = false;
     }
 
     const offset = (page - 1) * limit;
@@ -81,53 +127,18 @@ exports.getAllProducts = async (req, res, next) => {
   }
 };
 
-exports.getProductById = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const product = await Product.findByPk(id);
-    if (!product)
-      return res.status(404).json({ message: "Producto no encontrado" });
-    res.json(product);
-  } catch (error) {
-    next(error);
-  }
+exports.getProductById = async (req, res) => {
+  res.status(501).json({ message: "getProductById no implementado aún" });
 };
 
-exports.createProduct = async (req, res, next) => {
-  try {
-    const { name, description, price, stock } = req.body;
-    const product = await Product.create({ name, description, price, stock });
-    res.status(201).json(product);
-  } catch (error) {
-    next(error);
-  }
+exports.createProduct = async (req, res) => {
+  res.status(501).json({ message: "createProduct no implementado aún" });
 };
 
-exports.updateProduct = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-
-    const product = await Product.findByPk(id);
-    if (!product) {
-      return res.status(404).json({ message: "Producto no encontrado" });
-    }
-
-    await product.update(req.body);
-
-    res.json({ message: "Producto actualizado", product });
-  } catch (error) {
-    next(error);
-  }
+exports.updateProduct = async (req, res) => {
+  res.status(501).json({ message: "updateProduct no implementado aún" });
 };
 
-exports.deleteProduct = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const deleted = await Product.destroy({ where: { id } });
-    if (!deleted)
-      return res.status(404).json({ message: "Producto no encontrado" });
-    res.json({ message: "Producto eliminado" });
-  } catch (error) {
-    next(error);
-  }
+exports.deleteProduct = async (req, res) => {
+  res.status(501).json({ message: "deleteProduct no implementado aún" });
 };

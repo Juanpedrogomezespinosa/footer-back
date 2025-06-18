@@ -24,6 +24,38 @@ const Product = sequelize.define(
       type: DataTypes.INTEGER,
       defaultValue: 0,
     },
+    size: {
+      type: DataTypes.STRING(10), // Ej: "S", "M", "L", "XL"
+      allowNull: true,
+    },
+    color: {
+      type: DataTypes.STRING(30),
+      allowNull: true,
+    },
+    brand: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+    },
+    category: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+    },
+    gender: {
+      type: DataTypes.ENUM("hombre", "mujer", "unisex"),
+      allowNull: true,
+    },
+    material: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+    },
+    season: {
+      type: DataTypes.ENUM("verano", "invierno", "otoño", "primavera"),
+      allowNull: true,
+    },
+    is_new: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
     created_at: {
       type: DataTypes.DATE,
     },
@@ -31,9 +63,9 @@ const Product = sequelize.define(
   {
     tableName: "products",
     timestamps: true,
-    createdAt: "created_at", // Sequelize usará esta columna
-    updatedAt: false, // no usas updated_at por ahora
-    underscored: true, // por si agregas más modelos con snake_case
+    createdAt: "created_at",
+    updatedAt: false,
+    underscored: true,
   }
 );
 
