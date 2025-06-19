@@ -66,11 +66,7 @@ backend/
 
 #####Futuras implementaciones#####
 
-- Añadir filtros, paginación/ búsqueda para productos.
-- Implementar roles de usuario y control de permisos.
-- Integrar pagos, emails o subir imágenes.
-- conectar con el front.
-  ✅ Lista de funcionalidades planificadas (ordenada por dificultad)
+✅ Lista de funcionalidades planificadas (ordenada por dificultad)
 
 🔹 Nivel 1 – Básico / Medio
 ✅ Token con expiración automática (JWT) ✅
@@ -103,7 +99,7 @@ backend/
 📦 Gestión automática de stock al comprar ✅
 🔐 Login con Gmail (OAuth 2.0 con Google)
 📝 Permisos para admins crear y editar anuncios/productos ✅
-⁇ Crear página 404 en front
+⁇ Crear página 404 en el front
 
 🔺 Nivel 3 – Avanzado
 🔗 Conexión del backend con frontend (React u otro)
