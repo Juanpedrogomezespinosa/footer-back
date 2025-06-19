@@ -1,4 +1,5 @@
 const { User, Order, OrderItem, Product } = require("../models");
+const sendEmail = require("../utils/email");
 
 exports.getAllUsers = async (req, res, next) => {
   try {
@@ -56,6 +57,33 @@ exports.getOrderHistory = async (req, res, next) => {
     });
 
     res.json({ orders });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Nuevo método para registrar usuario con email de bienvenida
+exports.registerUser = async (req, res, next) => {
+  try {
+    const { email, name, password } = req.body;
+
+    // Validar si usuario existe (opcional)
+    const existingUser = await User.findOne({ where: { email } });
+    if (existingUser) {
+      return res.status(400).json({ message: "El email ya está registrado" });
+    }
+
+    // Crear usuario
+    const user = await User.create({ email, name, password });
+
+    // Enviar email de bienvenida
+    const html = `
+      <h1>Bienvenido ${name} a nuestra tienda</h1>
+      <p>Gracias por registrarte. Esperamos que disfrutes comprando con nosotros.</p>
+    `;
+    await sendEmail(email, "Bienvenido a nuestra tienda", html);
+
+    res.status(201).json({ message: "Usuario creado y email enviado", user });
   } catch (error) {
     next(error);
   }

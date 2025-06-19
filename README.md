@@ -12,48 +12,56 @@ backend/
 │ │ └── env.js
 │ │
 │ ├── controllers/ # Lógica de negocio
-│ │ └── orderController.js
+│ │ ├── orderController.js
 │ │ ├── productController.js
 │ │ ├── authController.js
+│ │ ├── cartController.js
 │ │ └── userController.js
-│ │ └── cartController.js
+│ │
+│ ├── emails/ # Envío de correos electrónicos
+│ │ ├── order-confirmation.html
+│ │ └── welcome.html
 │ │
 │ ├── models/ # Modelos y acceso a base de datos
 │ │ ├── index.js
 │ │ ├── productModel.js
 │ │ ├── orderItemModel.js
+│ │ ├── cartItemModel.js
 │ │ ├── userModel.js
 │ │ └── orderModel.js
 │ │
 │ ├── routes/ # Endpoints de la API
 │ │ ├── productRoutes.js
 │ │ ├── authRoutes.js
+│ │ ├── cartRoutes.js
+│ │ ├── orderRoutes.js
 │ │ └── userRoutes.js
-│ │ └── cartRoutes.js
-│ │ └── orderRoutes.js
 │ │
 │ ├── middlewares/ # Middlewares reutilizables
 │ │ ├── authMiddleware.js
-│ │ └── errorHandler.js
 │ │ ├── roleMiddleware.js
 │ │ ├── uploadMiddleware.js
+│ │ └── errorHandler.js
 │ │
 │ ├── services/ # Lógica adicional desacoplada
-│ │ └── paymentService.js
+│ │ ├── paymentService.js
+│ │ └── emailService.js
 │ │
 │ ├── utils/ # Funciones auxiliares
+│ │ ├── email.js
 │ │ └── slugify.js
 │ │
 │ ├── app.js # Configuración de la app de Express
-│ └── resetDatabase.js
-│ └── hashPassword.js
+│ ├── resetDatabase.js
+│ ├── hashPassword.js
 │ └── server.js # Inicializa el servidor y escucha en un puerto
+│ │
+│ └── uploads/ # Carpeta donde se suben las imágenes.
 │
 ├── .env # Variables de entorno
 ├── package.json # Declaración de dependencias y scripts
 ├── package-lock.json # Versión fija de dependencias
 ├── README.md # Documentación inicial del proyecto
-├── uploads/ # Carpeta donde se suben las imágenes.
 └── .gitignore # Archivos a ignorar por git (ej. node_modules, .env)
 
 #####Futuras implementaciones#####
@@ -82,16 +90,20 @@ backend/
 🔎 Añadir la posibilidad de buscar por texto en el navbar
 📊 Añadir la posibilidad de ver el historial de compras ✅
 📊 Añadir la posibilidad de ver pedidos en curso [Esta no sé si hacerla o no]
+✏️ Posibilidad de editar perfil de usuario (cambiar contraseña, correo, nombre, etc)
+✏️ Añadir "olvidé mi contraseña" en el formulario de login, con correo incluido
 
 🔸 Nivel 2 – Medio / Avanzado
-🖼 Subida de imágenes para productos (solo admin)
+🖼 Subida de imágenes para productos (solo admin)✅
 🧺 Sistema de carrito de compras completo (por usuario cliente)✅
 💳 Integración con pagos (Stripe o PayPal)
-📧 Envío de emails tras registro o compra (configurar mail del sitio)
-🗂 Historial de pedidos por usuario
-📦 Gestión automática de stock al comprar
+📧 Envío de emails tras registro o compra ✅
+✉️ Crear mail del sitio ✅
+🗂 Historial de pedidos por usuario ✅
+📦 Gestión automática de stock al comprar ✅
 🔐 Login con Gmail (OAuth 2.0 con Google)
-📝 Permisos para admins crear y editar anuncios/productos
+📝 Permisos para admins crear y editar anuncios/productos ✅
+⁇ Crear página 404 en front
 
 🔺 Nivel 3 – Avanzado
 🔗 Conexión del backend con frontend (React u otro)
@@ -109,5 +121,11 @@ usuario de prueba:
 {
 "username": "juanpe",
 "email": "juanpe@example.com",
+"password": "123456"
+}
+
+{
+"username": "juanpe",
+"email": "juanpedrogomezespinosa@gmail.com",
 "password": "123456"
 }

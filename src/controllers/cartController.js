@@ -1,269 +1,139 @@
-const { Order, OrderItem, Product } = require("../models");
-const { format } = require("date-fns");
+const { CartItem, Product, User, Order, OrderItem } = require("../models");
+const { sendOrderConfirmationEmail } = require("../services/emailService");
 
-function formatOrder(order) {
-  if (!order) return null;
-
-  const orderData = order.toJSON ? order.toJSON() : order;
-
-  // Formatear fecha de creación del pedido
-  orderData.createdAt = orderData.createdAt
-    ? format(new Date(orderData.createdAt), "dd/MM/yyyy HH:mm")
-    : null;
-
-  if (orderData.OrderItems && orderData.OrderItems.length) {
-    orderData.OrderItems = orderData.OrderItems.map((item) => {
-      item.createdAt = item.createdAt
-        ? format(new Date(item.createdAt), "dd/MM/yyyy HH:mm")
-        : null;
-      if (item.Product) {
-        item.Product.created_at = item.Product.created_at
-          ? format(new Date(item.Product.created_at), "dd/MM/yyyy HH:mm")
-          : null;
-      }
-      return item;
-    });
-  }
-
-  return orderData;
-}
-
-// Obtener carrito pendiente del usuario
-exports.getCart = async (req, res, next) => {
+/**
+ * Obtiene los productos del carrito del usuario actual
+ */
+const getCart = async (req, res, next) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user.id;
 
-    const order = await Order.findOne({
-      where: { userId, status: "pendiente" },
-      include: {
-        model: OrderItem,
-        include: {
-          model: Product,
-        },
-      },
+    const cart = await CartItem.findAll({
+      where: { userId },
+      include: [Product],
     });
 
-    if (!order) {
-      return res.json({ message: "Carrito vacío", items: [] });
-    }
-
-    res.json(formatOrder(order));
+    res.json(cart);
   } catch (error) {
     next(error);
   }
 };
 
-// Añadir producto al carrito
-exports.addToCart = async (req, res, next) => {
+/**
+ * Añade un producto al carrito del usuario actual
+ */
+const addToCart = async (req, res, next) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user.id;
     const { productId, quantity } = req.body;
 
-    if (!productId || !quantity || quantity <= 0)
-      return res.status(400).json({ message: "Datos inválidos" });
-
-    // Buscar o crear pedido pendiente
-    let [order] = await Order.findOrCreate({
-      where: { userId, status: "pendiente" },
-      defaults: { total: 0, userId },
-    });
-
-    // Validar producto y stock
     const product = await Product.findByPk(productId);
-    if (!product)
+    if (!product) {
       return res.status(404).json({ message: "Producto no encontrado" });
-    if (product.stock < quantity)
-      return res.status(400).json({ message: "Stock insuficiente" });
-
-    // Buscar si ya existe el item
-    let orderItem = await OrderItem.findOne({
-      where: { orderId: order.id, productId },
-    });
-
-    if (orderItem) {
-      orderItem.quantity += quantity;
-      await orderItem.save();
-    } else {
-      orderItem = await OrderItem.create({
-        orderId: order.id,
-        productId,
-        quantity,
-        price: product.price,
-      });
     }
 
-    // Recalcular total
-    const orderItems = await OrderItem.findAll({
-      where: { orderId: order.id },
-    });
-    order.total = orderItems.reduce(
-      (sum, item) => Number(sum) + Number(item.price) * Number(item.quantity),
-      0
-    );
-    await order.save();
-
-    // Refrescar carrito
-    const updatedOrder = await Order.findOne({
-      where: { id: order.id },
-      include: {
-        model: OrderItem,
-        include: { model: Product },
-      },
+    const existingItem = await CartItem.findOne({
+      where: { userId, productId },
     });
 
-    res.json({
-      message: "Producto añadido al carrito",
-      order: formatOrder(updatedOrder),
-    });
+    if (existingItem) {
+      existingItem.quantity += quantity;
+      await existingItem.save();
+    } else {
+      await CartItem.create({ userId, productId, quantity });
+    }
+
+    res.status(201).json({ message: "Producto añadido al carrito" });
   } catch (error) {
     next(error);
   }
 };
 
-// Actualizar cantidad de un item en el carrito
-exports.updateCartItem = async (req, res, next) => {
+/**
+ * Actualiza la cantidad de un producto en el carrito
+ */
+const updateCartItem = async (req, res, next) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user.id;
     const { itemId } = req.params;
     const { quantity } = req.body;
 
-    if (quantity === undefined || quantity < 0)
-      return res.status(400).json({ message: "Cantidad inválida" });
+    const cartItem = await CartItem.findOne({ where: { id: itemId, userId } });
 
-    const order = await Order.findOne({
-      where: { userId, status: "pendiente" },
-    });
-    if (!order)
-      return res.status(404).json({ message: "Carrito no encontrado" });
-
-    const orderItem = await OrderItem.findOne({
-      where: { id: itemId, orderId: order.id },
-    });
-    if (!orderItem)
-      return res.status(404).json({ message: "Item no encontrado" });
-
-    if (quantity === 0) {
-      await orderItem.destroy();
-    } else {
-      const product = await Product.findByPk(orderItem.productId);
-      if (product.stock < quantity)
-        return res.status(400).json({ message: "Stock insuficiente" });
-
-      orderItem.quantity = quantity;
-      await orderItem.save();
+    if (!cartItem) {
+      return res
+        .status(404)
+        .json({ message: "Producto no encontrado en el carrito" });
     }
 
-    const orderItems = await OrderItem.findAll({
-      where: { orderId: order.id },
-    });
-    order.total = orderItems.reduce(
-      (sum, item) => Number(sum) + Number(item.price) * Number(item.quantity),
-      0
-    );
-    await order.save();
+    cartItem.quantity = quantity;
+    await cartItem.save();
 
-    const updatedOrder = await Order.findOne({
-      where: { id: order.id },
-      include: {
-        model: OrderItem,
-        include: { model: Product },
-      },
-    });
-
-    res.json({
-      message: "Carrito actualizado",
-      order: formatOrder(updatedOrder),
-    });
+    res.json({ message: "Cantidad actualizada correctamente" });
   } catch (error) {
     next(error);
   }
 };
 
-// Eliminar un item del carrito
-exports.removeCartItem = async (req, res, next) => {
+/**
+ * Elimina un producto del carrito del usuario
+ */
+const removeCartItem = async (req, res, next) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user.id;
     const { itemId } = req.params;
 
-    const order = await Order.findOne({
-      where: { userId, status: "pendiente" },
-    });
-    if (!order)
-      return res.status(404).json({ message: "Carrito no encontrado" });
+    await CartItem.destroy({ where: { id: itemId, userId } });
 
-    const orderItem = await OrderItem.findOne({
-      where: { id: itemId, orderId: order.id },
-    });
-    if (!orderItem)
-      return res.status(404).json({ message: "Item no encontrado" });
-
-    await orderItem.destroy();
-
-    const orderItems = await OrderItem.findAll({
-      where: { orderId: order.id },
-    });
-    order.total = orderItems.reduce(
-      (sum, item) => Number(sum) + Number(item.price) * Number(item.quantity),
-      0
-    );
-    await order.save();
-
-    const updatedOrder = await Order.findOne({
-      where: { id: order.id },
-      include: {
-        model: OrderItem,
-        include: { model: Product },
-      },
-    });
-
-    res.json({ message: "Item eliminado", order: formatOrder(updatedOrder) });
+    res.json({ message: "Producto eliminado del carrito" });
   } catch (error) {
     next(error);
   }
 };
 
-// Finalizar compra (checkout)
-exports.checkout = async (req, res, next) => {
+/**
+ * Procesa la compra del carrito del usuario:
+ *  - Crea una orden
+ *  - Mueve los ítems del carrito a la orden
+ *  - Envía un email de confirmación
+ */
+const checkout = async (req, res, next) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user.id;
 
-    const order = await Order.findOne({
-      where: { userId, status: "pendiente" },
-      include: [
-        {
-          model: OrderItem,
-          include: [Product],
-        },
-      ],
+    const cartItems = await CartItem.findAll({
+      where: { userId },
+      include: [Product],
     });
 
-    if (!order)
-      return res
-        .status(400)
-        .json({ message: "No hay pedido pendiente para procesar" });
-
-    if (!order.OrderItems || order.OrderItems.length === 0)
+    if (cartItems.length === 0) {
       return res.status(400).json({ message: "El carrito está vacío" });
-
-    for (const item of order.OrderItems) {
-      const product = await Product.findByPk(item.productId);
-      if (product.stock < item.quantity) {
-        return res.status(400).json({
-          message: `Stock insuficiente para el producto ${product.name}`,
-        });
-      }
     }
 
-    for (const item of order.OrderItems) {
-      const product = await Product.findByPk(item.productId);
-      product.stock -= item.quantity;
-      await product.save();
+    const total = cartItems.reduce((sum, item) => {
+      return sum + item.Product.price * item.quantity;
+    }, 0);
+
+    const order = await Order.create({
+      userId,
+      total,
+      status: "pendiente",
+    });
+
+    for (const item of cartItems) {
+      await OrderItem.create({
+        orderId: order.id,
+        productId: item.productId,
+        quantity: item.quantity,
+        price: item.Product.price,
+      });
     }
+
+    await CartItem.destroy({ where: { userId } });
 
     order.status = "pagado";
     await order.save();
 
-    // Refrescar la orden con detalles para la respuesta
     const updatedOrder = await Order.findOne({
       where: { id: order.id },
       include: [
@@ -274,11 +144,51 @@ exports.checkout = async (req, res, next) => {
       ],
     });
 
+    try {
+      const user = await User.findByPk(userId);
+
+      const itemsForEmail = updatedOrder.OrderItems.map((item) => ({
+        productName: item.Product.name,
+        quantity: item.quantity,
+        price: item.price,
+      }));
+
+      console.log("📧 Enviando email de confirmación a", user.email);
+      await sendOrderConfirmationEmail(
+        user.email,
+        user.username,
+        itemsForEmail,
+        updatedOrder.total
+      );
+      console.log("✅ Email de confirmación enviado correctamente");
+    } catch (emailError) {
+      console.error("❌ Error enviando email de confirmación:", emailError);
+    }
+
     res.json({
       message: "Compra realizada con éxito",
-      order: formatOrder(updatedOrder),
+      order: {
+        id: updatedOrder.id,
+        total: updatedOrder.total,
+        status: updatedOrder.status,
+        createdAt: updatedOrder.createdAt,
+        items: updatedOrder.OrderItems.map((item) => ({
+          productId: item.productId,
+          productName: item.Product.name,
+          quantity: item.quantity,
+          price: item.price,
+        })),
+      },
     });
   } catch (error) {
     next(error);
   }
+};
+
+module.exports = {
+  getCart,
+  addToCart,
+  updateCartItem,
+  removeCartItem,
+  checkout,
 };

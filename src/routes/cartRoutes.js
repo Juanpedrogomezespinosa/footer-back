@@ -3,6 +3,7 @@ const router = express.Router();
 const cartController = require("../controllers/cartController");
 const authMiddleware = require("../middlewares/authMiddleware");
 
+// Todas las rutas necesitan token válido
 router.use(authMiddleware);
 
 router.get("/", cartController.getCart);

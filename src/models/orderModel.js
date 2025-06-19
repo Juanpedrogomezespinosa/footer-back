@@ -34,6 +34,7 @@ const Order = sequelize.define(
   }
 );
 
+// Relaciones
 Order.belongsTo(User, { foreignKey: "userId" });
 User.hasMany(Order, { foreignKey: "userId" });
 

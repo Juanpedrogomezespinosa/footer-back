@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Pedido Confirmado - Footer 👟</title>
+    <style>
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background-color: #f4f6fa;
+        margin: 0;
+        padding: 0;
+        color: #444;
+      }
+      .container {
+        max-width: 650px;
+        background: white;
+        margin: 30px auto;
+        padding: 25px 30px;
+        border-radius: 10px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      }
+      .header {
+        text-align: center;
+        padding-bottom: 20px;
+      }
+      .header img {
+        width: 100px;
+      }
+      h2 {
+        color: #28a745;
+        font-weight: 700;
+      }
+      p {
+        font-size: 16px;
+        line-height: 1.6;
+      }
+      .order-details {
+        margin-top: 25px;
+        border-collapse: collapse;
+        width: 100%;
+      }
+      .order-details th,
+      .order-details td {
+        border: 1px solid #ddd;
+        padding: 10px 12px;
+        text-align: left;
+      }
+      .order-details th {
+        background-color: #f0f4f8;
+        font-weight: 600;
+      }
+      .btn {
+        display: inline-block;
+        background-color: #28a745;
+        color: white !important;
+        padding: 12px 28px;
+        border-radius: 6px;
+        text-decoration: none;
+        font-weight: 700;
+        margin-top: 30px;
+      }
+      .footer {
+        font-size: 13px;
+        color: #888;
+        text-align: center;
+        margin-top: 40px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <img src="https://i.imgur.com/eo01YIz.png" alt="Footer Logo" />
+      </div>
+      <h2>¡Pedido Confirmado!</h2>
+      <p>Hola {{name}},</p>
+      <p>
+        Gracias por tu compra en <strong>Footer 👟</strong>. Hemos recibido tu
+        pedido y está en proceso.
+      </p>
+
+      <table class="order-details">
+        <thead>
+          <tr>
+            <th>Producto</th>
+            <th>Cantidad</th>
+            <th>Precio</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{#each items}}
+          <tr>
+            <td>{{productName}}</td>
+            <td>{{quantity}}</td>
+            <td>€{{price}}</td>
+          </tr>
+          {{/each}}
+        </tbody>
+      </table>
+
+      <p>Total: <strong>€{{total}}</strong></p>
+
+      <a
+        href="https://tu-web.com/mis-pedidos"
+        class="btn"
+        target="_blank"
+        rel="noopener"
+        >Ver mi pedido</a
+      >
+
+      <p class="footer">
+        Si tienes alguna pregunta, responde este correo o visita nuestra web.
+      </p>
+    </div>
+  </body>
+</html>

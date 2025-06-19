@@ -2,12 +2,13 @@ const { User } = require("../models");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const config = require("../config/env");
+const { sendWelcomeEmail } = require("../services/emailService"); // Importamos la función específica
 
 // Genera token con expiración de 4 horas
 const generateToken = (user) => {
   return jwt.sign(
     {
-      userId: user.id, // Esto genera el payload con userId
+      userId: user.id,
       role: user.role,
     },
     config.jwtSecret,
@@ -28,6 +29,9 @@ exports.register = async (req, res, next) => {
     });
 
     const token = generateToken(user);
+
+    // ✉️ Enviar email de bienvenida con plantilla
+    await sendWelcomeEmail(email, username);
 
     res.status(201).json({
       message: "Usuario registrado",

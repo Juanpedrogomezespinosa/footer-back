@@ -97,19 +97,79 @@ exports.getAllProducts = async (req, res, next) => {
 };
 
 exports.getProductById = async (req, res) => {
-  res.status(501).json({ message: "getProductById no implementado aún" });
+  try {
+    const { id } = req.params;
+    const product = await Product.findByPk(id);
+    if (!product) {
+      return res.status(404).json({ message: "Producto no encontrado" });
+    }
+    res.json(product);
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Error al obtener producto", error: error.message });
+  }
 };
 
 exports.createProduct = async (req, res) => {
-  res.status(501).json({ message: "createProduct no implementado aún" });
+  try {
+    const newProduct = await Product.create(req.body);
+    res.status(201).json(newProduct);
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Error creando producto", error: error.message });
+  }
 };
 
 exports.updateProduct = async (req, res) => {
-  res.status(501).json({ message: "updateProduct no implementado aún" });
+  try {
+    const { id } = req.params;
+
+    const product = await Product.findByPk(id);
+
+    if (!product) {
+      return res.status(404).json({ message: "Producto no encontrado" });
+    }
+
+    await product.update(req.body);
+
+    res.json({ message: "Producto actualizado correctamente", product });
+  } catch (error) {
+    console.error("Error actualizando producto:", error);
+    res
+      .status(500)
+      .json({ message: "Error actualizando producto", error: error.message });
+  }
 };
 
 exports.deleteProduct = async (req, res) => {
-  res.status(501).json({ message: "deleteProduct no implementado aún" });
+  try {
+    const { id } = req.params;
+
+    const product = await Product.findByPk(id);
+    if (!product) {
+      return res.status(404).json({ message: "Producto no encontrado" });
+    }
+
+    await product.destroy();
+
+    res.json({ message: "Producto eliminado correctamente" });
+  } catch (error) {
+    console.error("Error eliminando producto:", error);
+
+    if (error.name === "SequelizeForeignKeyConstraintError") {
+      return res.status(409).json({
+        message:
+          "No se puede eliminar el producto porque está siendo utilizado en otros registros (por ejemplo, órdenes).",
+        error: error.message,
+      });
+    }
+
+    res
+      .status(500)
+      .json({ message: "Error eliminando producto", error: error.message });
+  }
 };
 
 // ✅ NUEVA función: subir imagen de producto
