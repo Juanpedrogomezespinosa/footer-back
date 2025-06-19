@@ -55,12 +55,23 @@ const addToCart = async (req, res, next) => {
 const updateCartItem = async (req, res, next) => {
   try {
     const userId = req.user.id;
-    const { itemId } = req.params;
+    const itemId = parseInt(req.params.itemId, 10); // Asegurar que es un número
     const { quantity } = req.body;
 
-    const cartItem = await CartItem.findOne({ where: { id: itemId, userId } });
+    if (!quantity || quantity <= 0) {
+      return res
+        .status(400)
+        .json({ message: "La cantidad debe ser mayor que cero" });
+    }
+
+    console.log("🔍 Actualizando carrito:", { userId, itemId, quantity });
+
+    const cartItem = await CartItem.findOne({
+      where: { id: itemId, userId },
+    });
 
     if (!cartItem) {
+      console.warn("❌ Producto no encontrado en el carrito para este usuario");
       return res
         .status(404)
         .json({ message: "Producto no encontrado en el carrito" });
@@ -81,7 +92,7 @@ const updateCartItem = async (req, res, next) => {
 const removeCartItem = async (req, res, next) => {
   try {
     const userId = req.user.id;
-    const { itemId } = req.params;
+    const itemId = parseInt(req.params.itemId, 10);
 
     await CartItem.destroy({ where: { id: itemId, userId } });
 

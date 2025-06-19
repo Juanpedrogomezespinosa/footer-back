@@ -1,38 +1,54 @@
 const sequelize = require("../config/db");
+
 const User = require("./userModel");
 const Product = require("./productModel");
 const Order = require("./orderModel");
 const OrderItem = require("./orderItemModel");
 const CartItem = require("./cartItemModel");
 
-// Definición de relaciones entre modelos
+// Si algún modelo define un método .associate, se ejecuta para establecer relaciones
+const models = {
+  User,
+  Product,
+  Order,
+  OrderItem,
+  CartItem,
+};
 
-// Relación Usuario - Ordenes
+// Asociaciones por modelo (si existen)
+Object.values(models).forEach((model) => {
+  if (typeof model.associate === "function") {
+    model.associate(models);
+  }
+});
+
+/**
+ * Asociaciones explícitas entre modelos
+ */
+
+// Usuario - Orden
 User.hasMany(Order, { foreignKey: "userId", onDelete: "CASCADE" });
 Order.belongsTo(User, { foreignKey: "userId" });
 
-// Relación Orden - Items de Orden
+// Orden - Items de Orden
 Order.hasMany(OrderItem, { foreignKey: "orderId", onDelete: "CASCADE" });
 OrderItem.belongsTo(Order, { foreignKey: "orderId" });
 
-// Relación Producto - Items de Orden
+// Producto - Items de Orden
 Product.hasMany(OrderItem, { foreignKey: "productId" });
 OrderItem.belongsTo(Product, { foreignKey: "productId" });
 
-// Relaciones Many-to-Many entre Orden y Producto a través de OrderItem
+// Relaciones Many-to-Many entre Orden y Producto mediante OrderItem
 Order.belongsToMany(Product, {
   through: OrderItem,
   foreignKey: "orderId",
   otherKey: "productId",
 });
-
 Product.belongsToMany(Order, {
   through: OrderItem,
   foreignKey: "productId",
   otherKey: "orderId",
 });
-
-// Relaciones para el carrito de compras
 
 // Usuario - Items del carrito
 User.hasMany(CartItem, { foreignKey: "userId", onDelete: "CASCADE" });

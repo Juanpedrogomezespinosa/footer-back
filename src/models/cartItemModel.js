@@ -33,4 +33,19 @@ const CartItem = sequelize.define(
   }
 );
 
+/**
+ * Asocia el modelo CartItem con User y Product
+ */
+CartItem.associate = (models) => {
+  CartItem.belongsTo(models.User, {
+    foreignKey: "userId",
+    as: "user",
+  });
+
+  CartItem.belongsTo(models.Product, {
+    foreignKey: "productId",
+    as: "product",
+  });
+};
+
 module.exports = CartItem;
