@@ -12,6 +12,7 @@ backend/
 │ │ └── env.js
 │ │
 │ ├── controllers/ # Lógica de negocio
+│ │ └── orderController.js
 │ │ ├── productController.js
 │ │ ├── authController.js
 │ │ └── userController.js
@@ -29,6 +30,7 @@ backend/
 │ │ ├── authRoutes.js
 │ │ └── userRoutes.js
 │ │ └── cartRoutes.js
+│ │ └── orderRoutes.js
 │ │
 │ ├── middlewares/ # Middlewares reutilizables
 │ │ ├── authMiddleware.js
@@ -73,11 +75,11 @@ backend/
 🛒 Navegación libre para usuarios planos (sin registro)✅
 🛒 Añadir artículos a la cesta y ver cesta para usuarios cliente✅
 🍪 Añadir popup para las cookies
-🔎 filtros de búsqueda por nombre, rango de precio, stock, talla, color, marca ✅
+🔎 Filtros en backend: nombre, rango de precio, stock, talla, color, marca, paginación y ordenación. ✅
 🔎 Añadir la posibilidad de filtrar en el front, por talla, color, etc.
 🔎 Añadir la posibilidad de buscar por texto en el navbar
-📊 Añadir la posibilidad de ver el historial de compras
-📊 Añadir la posibilidad de ver el historial de pedidos
+📊 Añadir la posibilidad de ver el historial de compras ✅
+📊 Añadir la posibilidad de ver pedidos en curso [Esta no sé si hacerla o no]
 
 🔸 Nivel 2 – Medio / Avanzado
 🖼 Subida de imágenes para productos (solo admin)

@@ -1,31 +1,31 @@
 const express = require("express");
 const cors = require("cors");
-const helmet = require("helmet");
-const morgan = require("morgan");
-const cookieParser = require("cookie-parser");
-require("dotenv").config();
-
 const app = express();
 
 // Middlewares
 app.use(cors());
-app.use(helmet());
-app.use(morgan("dev"));
 app.use(express.json());
-app.use(cookieParser());
 
-// Rutas
-app.use("/api/products", require("./routes/productRoutes"));
-app.use("/api/users", require("./routes/userRoutes"));
-app.use("/api/auth", require("./routes/authRoutes"));
-
-// NUEVO: Rutas carrito protegidas con authMiddleware
+// Import middlewares
 const authMiddleware = require("./middlewares/authMiddleware");
-const cartRoutes = require("./routes/cartRoutes");
-app.use("/api/cart", authMiddleware, cartRoutes);
-
-// Middleware de manejo de errores
 const errorHandler = require("./middlewares/errorHandler");
+
+// Import routes
+const productRoutes = require("./routes/productRoutes");
+const userRoutes = require("./routes/userRoutes");
+const authRoutes = require("./routes/authRoutes");
+const cartRoutes = require("./routes/cartRoutes");
+const orderRoutes = require("./routes/orderRoutes");
+
+// Routes
+app.use("/api/products", productRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/auth", authRoutes);
+// Protección con authMiddleware para rutas del carrito, perfecto
+app.use("/api/cart", authMiddleware, cartRoutes);
+app.use("/api/orders", orderRoutes);
+
+// Error handler
 app.use(errorHandler);
 
 module.exports = app;
