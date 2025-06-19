@@ -2,27 +2,42 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 
-// Ruta absoluta a la carpeta 'uploads' en la raíz del proyecto
-const uploadsPath = path.join(__dirname, "..", "..", "uploads");
+// Carpeta uploads dentro de src (misma que en app.js)
+const uploadsPath = path.join(__dirname, "..", "uploads");
 
-// Crea la carpeta si no existe
 if (!fs.existsSync(uploadsPath)) {
   fs.mkdirSync(uploadsPath, { recursive: true });
+  console.log(
+    "📁 Carpeta 'uploads' creada automáticamente dentro de src (uploadMiddleware)."
+  );
 }
 
-// Configuración del almacenamiento de multer
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, uploadsPath); // 🟢 Guarda en la raíz, no en src
+    cb(null, uploadsPath);
   },
   filename: function (req, file, cb) {
-    const uniqueName = `${Date.now()}-${Math.round(
-      Math.random() * 1e9
-    )}${path.extname(file.originalname)}`;
-    cb(null, uniqueName);
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    const ext = path.extname(file.originalname);
+    cb(null, uniqueSuffix + ext);
   },
 });
 
-const upload = multer({ storage });
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // límite 5MB
+  fileFilter: (req, file, cb) => {
+    const filetypes = /jpeg|jpg|png|gif/;
+    const mimetype = filetypes.test(file.mimetype);
+    const extname = filetypes.test(
+      path.extname(file.originalname).toLowerCase()
+    );
+
+    if (mimetype && extname) {
+      return cb(null, true);
+    }
+    cb(new Error("Solo se permiten imágenes (jpeg, jpg, png, gif)"));
+  },
+});
 
 module.exports = upload;

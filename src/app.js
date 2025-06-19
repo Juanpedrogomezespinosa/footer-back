@@ -5,19 +5,19 @@ const fs = require("fs");
 
 const app = express();
 
-// 📁 Verifica y crea la carpeta 'uploads' si no existe
+// 📁 Carpeta 'uploads' dentro de src
 const uploadsDir = path.join(__dirname, "uploads");
 
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
-  console.log("📁 Carpeta 'uploads' creada automáticamente.");
+  console.log("📁 Carpeta 'uploads' creada automáticamente dentro de src.");
 }
 
 // Middlewares
 app.use(cors());
 app.use(express.json());
 
-// Sirve las imágenes estáticamente
+// Sirve imágenes estáticamente desde la carpeta uploads dentro de src
 app.use("/uploads", express.static(uploadsDir));
 
 // Import middlewares
