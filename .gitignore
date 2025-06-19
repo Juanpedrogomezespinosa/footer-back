@@ -1,0 +1,25 @@
+# Dependencias
+node_modules/
+
+# Carpeta para imágenes subidas
+uploads/
+
+# Archivos de entorno (variables secretas)
+.env
+
+# Logs
+logs/
+*.log
+
+# Directorios temporales
+tmp/
+temp/
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
+
+# Otros
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

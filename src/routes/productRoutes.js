@@ -23,7 +23,7 @@ router.post("/", authMiddleware, roleMiddleware("admin"), createProduct);
 router.put("/:id", authMiddleware, roleMiddleware("admin"), updateProduct);
 router.delete("/:id", authMiddleware, roleMiddleware("admin"), deleteProduct);
 
-// ✅ Nueva ruta: subida de imagen
+// 🖼 Subida de imagen (solo admin)
 router.post(
   "/:id/image",
   authMiddleware,

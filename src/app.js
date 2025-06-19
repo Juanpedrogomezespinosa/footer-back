@@ -1,14 +1,24 @@
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
+const fs = require("fs");
+
 const app = express();
+
+// 📁 Verifica y crea la carpeta 'uploads' si no existe
+const uploadsDir = path.join(__dirname, "uploads");
+
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+  console.log("📁 Carpeta 'uploads' creada automáticamente.");
+}
 
 // Middlewares
 app.use(cors());
 app.use(express.json());
 
 // Sirve las imágenes estáticamente
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use("/uploads", express.static(uploadsDir));
 
 // Import middlewares
 const authMiddleware = require("./middlewares/authMiddleware");
