@@ -53,55 +53,24 @@ exports.getAllProducts = async (req, res, next) => {
 
     const where = {};
 
-    if (name) {
-      where.name = { [Op.like]: `%${name}%` };
-    }
-
+    if (name) where.name = { [Op.like]: `%${name}%` };
     if (minPrice || maxPrice) {
       where.price = {};
       if (minPrice) where.price[Op.gte] = Number(minPrice);
       if (maxPrice) where.price[Op.lte] = Number(maxPrice);
     }
+    if (stock === "true") where.stock = { [Op.gt]: 0 };
+    else if (stock === "false") where.stock = 0;
 
-    if (stock === "true") {
-      where.stock = { [Op.gt]: 0 };
-    } else if (stock === "false") {
-      where.stock = 0;
-    }
-
-    if (size) {
-      where.size = size;
-    }
-
-    if (color) {
-      where.color = color;
-    }
-
-    if (brand) {
-      where.brand = brand;
-    }
-
-    if (category) {
-      where.category = category;
-    }
-
-    if (gender) {
-      where.gender = gender;
-    }
-
-    if (material) {
-      where.material = material;
-    }
-
-    if (season) {
-      where.season = season;
-    }
-
-    if (is_new === "true") {
-      where.is_new = true;
-    } else if (is_new === "false") {
-      where.is_new = false;
-    }
+    if (size) where.size = size;
+    if (color) where.color = color;
+    if (brand) where.brand = brand;
+    if (category) where.category = category;
+    if (gender) where.gender = gender;
+    if (material) where.material = material;
+    if (season) where.season = season;
+    if (is_new === "true") where.is_new = true;
+    else if (is_new === "false") where.is_new = false;
 
     const offset = (page - 1) * limit;
 
@@ -141,4 +110,30 @@ exports.updateProduct = async (req, res) => {
 
 exports.deleteProduct = async (req, res) => {
   res.status(501).json({ message: "deleteProduct no implementado aún" });
+};
+
+// ✅ NUEVA función: subir imagen de producto
+exports.uploadProductImage = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    if (!req.file) {
+      return res.status(400).json({ message: "No se subió ninguna imagen" });
+    }
+
+    const product = await Product.findByPk(id);
+    if (!product) {
+      return res.status(404).json({ message: "Producto no encontrado" });
+    }
+
+    product.image = req.file.filename;
+    await product.save();
+
+    res.json({
+      message: "Imagen subida correctamente",
+      image: product.image,
+    });
+  } catch (error) {
+    next(error);
+  }
 };

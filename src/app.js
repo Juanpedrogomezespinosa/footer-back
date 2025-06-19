@@ -1,10 +1,14 @@
 const express = require("express");
 const cors = require("cors");
+const path = require("path");
 const app = express();
 
 // Middlewares
 app.use(cors());
 app.use(express.json());
+
+// Sirve las imágenes estáticamente
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Import middlewares
 const authMiddleware = require("./middlewares/authMiddleware");
@@ -21,7 +25,6 @@ const orderRoutes = require("./routes/orderRoutes");
 app.use("/api/products", productRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/auth", authRoutes);
-// Protección con authMiddleware para rutas del carrito, perfecto
 app.use("/api/cart", authMiddleware, cartRoutes);
 app.use("/api/orders", orderRoutes);
 

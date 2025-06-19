@@ -36,6 +36,7 @@ backend/
 │ │ ├── authMiddleware.js
 │ │ └── errorHandler.js
 │ │ ├── roleMiddleware.js
+│ │ ├── uploadMiddleware.js
 │ │
 │ ├── services/ # Lógica adicional desacoplada
 │ │ └── paymentService.js
@@ -52,6 +53,7 @@ backend/
 ├── package.json # Declaración de dependencias y scripts
 ├── package-lock.json # Versión fija de dependencias
 ├── README.md # Documentación inicial del proyecto
+├── uploads/ # Carpeta donde se suben las imágenes.
 └── .gitignore # Archivos a ignorar por git (ej. node_modules, .env)
 
 #####Futuras implementaciones#####
