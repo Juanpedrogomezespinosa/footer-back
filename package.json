@@ -24,6 +24,7 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "reset-db": "node src/resetDatabase.js"
+    "reset-db": "node src/resetDatabase.js",
+    "create-admin": "node src/scripts/createAdmin.js"
   }
 }

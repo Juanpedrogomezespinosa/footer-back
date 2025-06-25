@@ -1,6 +1,6 @@
 const bcrypt = require("bcrypt");
 
-const password = "MiContraseñaAdmin123";
+const password = "Footer.admin32";
 
 bcrypt
   .hash(password, 10)

@@ -37,6 +37,10 @@ backend/
 │ │ ├── orderRoutes.js
 │ │ └── userRoutes.js
 │ │
+│ ├── scripts/
+│ │ ├── createAdmin.js // Script para crear un administrador
+│ │
+│ │
 │ ├── middlewares/ # Middlewares reutilizables
 │ │ ├── authMiddleware.js
 │ │ ├── roleMiddleware.js
@@ -76,7 +80,7 @@ backend/
 🔍 Filtros, búsqueda por nombre en productos ✅
 📄 Paginación de productos (ej. 10 por página) ✅
 🎨 Elegir paleta de colores para el frontend
-🌐 Buscar webs de referencia para inspirar el diseño
+🌐 Buscar webs de referencia para inspirar el diseño ✅
 🧩 Usar Miro.com para prototipado del diseño
 🛒 Navegación libre para usuarios planos (sin registro)✅
 🛒 Añadir artículos a la cesta y ver cesta para usuarios cliente✅
@@ -87,7 +91,10 @@ backend/
 📊 Añadir la posibilidad de ver el historial de compras ✅
 📊 Añadir la posibilidad de ver pedidos en curso [Esta no sé si hacerla o no]
 ✏️ Posibilidad de editar perfil de usuario (cambiar contraseña, correo, nombre, etc)
+✏️ Posibilidad de eliminar perfil
 ✏️ Añadir "olvidé mi contraseña" en el formulario de login, con correo incluido
+🙎‍♂️ Añadir que los usuarios puedan comentar en los productos y hacer calificar el producto con estrellas
+⭐️ Hacer que cada producto tenga una puntuación en base a las estrellas que le hayan dado los usuarios
 
 🔸 Nivel 2 – Medio / Avanzado
 🖼 Subida de imágenes para productos (solo admin)✅
@@ -104,13 +111,14 @@ backend/
 🔺 Nivel 3 – Avanzado
 🔗 Conexión del backend con frontend (React u otro)
 🛡 Seguridad avanzada: rate limiting, XSS, validación profunda
-🧠 IA para búsquedas conversacionales (“quiero unos zapatos azules del número 45”)
+🧠 IA para búsquedas conversacionales (“quiero unos zapatos azules del número 45”) (biblioteca tensorflow JS )
 
 credenciales admin:
 
 {
-"email": "admin@tudominio.com",
-"password": "MiContraseñaAdmin123"
+"username": "Footer Admin",
+"email": "admFooter@gmail.com",
+"password": "Footer.admin32"
 }
 
 usuario de prueba:
