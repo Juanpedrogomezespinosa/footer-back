@@ -5,6 +5,7 @@ const Product = require("./productModel");
 const Order = require("./orderModel");
 const OrderItem = require("./orderItemModel");
 const CartItem = require("./cartItemModel");
+const Comment = require("./commentModel"); // Nuevo modelo Comment
 
 // Si algún modelo define un método .associate, se ejecuta para establecer relaciones
 const models = {
@@ -13,6 +14,7 @@ const models = {
   Order,
   OrderItem,
   CartItem,
+  Comment, // Añadido Comment al listado de modelos
 };
 
 // Asociaciones por modelo (si existen)
@@ -58,6 +60,16 @@ CartItem.belongsTo(User, { foreignKey: "userId" });
 Product.hasMany(CartItem, { foreignKey: "productId" });
 CartItem.belongsTo(Product, { foreignKey: "productId" });
 
+// Nuevas asociaciones para comentarios
+
+// Usuario - Comentarios
+User.hasMany(Comment, { foreignKey: "userId", onDelete: "CASCADE" });
+Comment.belongsTo(User, { foreignKey: "userId" });
+
+// Producto - Comentarios
+Product.hasMany(Comment, { foreignKey: "productId", onDelete: "CASCADE" });
+Comment.belongsTo(Product, { foreignKey: "productId" });
+
 module.exports = {
   sequelize,
   User,
@@ -65,4 +77,5 @@ module.exports = {
   Order,
   OrderItem,
   CartItem,
+  Comment, // Exportar Comment también
 };

@@ -32,6 +32,7 @@ const userRoutes = require("./routes/userRoutes");
 const authRoutes = require("./routes/authRoutes");
 const cartRoutes = require("./routes/cartRoutes");
 const orderRoutes = require("./routes/orderRoutes");
+const commentRoutes = require("./routes/commentRoutes"); // <-- Importar rutas de comentarios
 
 // Routes
 app.use("/api/products", productRoutes);
@@ -39,6 +40,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/cart", authMiddleware, cartRoutes);
 app.use("/api/orders", orderRoutes);
+app.use("/api/comments", commentRoutes); // <-- Usar rutas de comentarios
 
 // Error handler
 app.use(errorHandler);
