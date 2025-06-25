@@ -12,15 +12,17 @@ const {
 const authMiddleware = require("../middlewares/authMiddleware");
 const roleMiddleware = require("../middlewares/roleMiddleware");
 
-// 🛡️ Rutas solo para administrador
+// Rutas solo para administradores
 router.get("/", authMiddleware, roleMiddleware("admin"), getAllUsers);
 router.get("/:id", authMiddleware, roleMiddleware("admin"), getUserById);
-router.delete("/:id", authMiddleware, roleMiddleware("admin"), deleteUser);
 
-// 📦 Ruta para historial de compras del usuario autenticado
+// Eliminación de usuario: administradores pueden eliminar a cualquiera, usuarios a sí mismos
+router.delete("/:id", authMiddleware, deleteUser);
+
+// Historial de pedidos del usuario autenticado
 router.get("/me/orders", authMiddleware, getOrderHistory);
 
-// ✏️ Ruta para editar perfil del usuario autenticado
+// Actualización del perfil del usuario autenticado
 router.put("/profile", authMiddleware, updateProfile);
 
 module.exports = router;

@@ -2,7 +2,7 @@ const bcrypt = require("bcrypt");
 const { User, Order, OrderItem, Product } = require("../models");
 const sendEmail = require("../utils/email");
 
-// Obtener todos los usuarios (solo admin)
+// Obtener todos los usuarios (solo administradores)
 exports.getAllUsers = async (req, res, next) => {
   try {
     const users = await User.findAll({ attributes: { exclude: ["password"] } });
@@ -12,35 +12,48 @@ exports.getAllUsers = async (req, res, next) => {
   }
 };
 
-// Obtener un usuario por ID (solo admin)
+// Obtener un usuario por ID (solo administradores)
 exports.getUserById = async (req, res, next) => {
   try {
     const { id } = req.params;
     const user = await User.findByPk(id, {
       attributes: { exclude: ["password"] },
     });
-    if (!user)
+    if (!user) {
       return res.status(404).json({ message: "Usuario no encontrado" });
+    }
     res.json(user);
   } catch (error) {
     next(error);
   }
 };
 
-// Eliminar un usuario (solo admin)
+// Eliminar un usuario (administrador puede eliminar a cualquiera, usuario solo a sí mismo)
 exports.deleteUser = async (req, res, next) => {
   try {
-    const { id } = req.params;
-    const deleted = await User.destroy({ where: { id } });
-    if (!deleted)
+    const userIdToDelete = parseInt(req.params.id, 10);
+    const requester = req.user;
+
+    // Solo administradores o el dueño del perfil puede eliminar
+    if (requester.role !== "admin" && requester.userId !== userIdToDelete) {
+      return res.status(403).json({
+        message: "No tiene permisos para eliminar este usuario",
+      });
+    }
+
+    const user = await User.findByPk(userIdToDelete);
+    if (!user) {
       return res.status(404).json({ message: "Usuario no encontrado" });
-    res.json({ message: "Usuario eliminado" });
+    }
+
+    await user.destroy();
+    res.json({ message: "Usuario eliminado correctamente" });
   } catch (error) {
     next(error);
   }
 };
 
-// Obtener el historial de pedidos del usuario autenticado
+// Obtener historial de pedidos del usuario autenticado
 exports.getOrderHistory = async (req, res, next) => {
   try {
     const userId = req.user.id;
@@ -74,7 +87,7 @@ exports.registerUser = async (req, res, next) => {
 
     const existingUser = await User.findOne({ where: { email } });
     if (existingUser) {
-      return res.status(400).json({ message: "El email ya está registrado" });
+      return res.status(400).json({ message: "El correo ya está registrado" });
     }
 
     const user = await User.create({ email, name, password });
@@ -85,7 +98,7 @@ exports.registerUser = async (req, res, next) => {
     `;
     await sendEmail(email, "Bienvenido a nuestra tienda", html);
 
-    res.status(201).json({ message: "Usuario creado y email enviado", user });
+    res.status(201).json({ message: "Usuario creado y correo enviado", user });
   } catch (error) {
     next(error);
   }
@@ -102,7 +115,7 @@ exports.updateProfile = async (req, res, next) => {
       return res.status(404).json({ message: "Usuario no encontrado" });
     }
 
-    // Verificar si se quiere actualizar el correo y que no esté en uso por otro usuario
+    // Validar que el nuevo correo no esté en uso por otro usuario
     if (email && email !== user.email) {
       const existingEmailUser = await User.findOne({
         where: { email },
@@ -117,12 +130,10 @@ exports.updateProfile = async (req, res, next) => {
       user.email = email;
     }
 
-    // Cambiar nombre si se proporciona
     if (name) {
       user.name = name;
     }
 
-    // Cambiar contraseña si se proporciona
     if (password) {
       const saltRounds = 10;
       const hashedPassword = await bcrypt.hash(password, saltRounds);
