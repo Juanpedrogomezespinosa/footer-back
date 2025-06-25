@@ -108,32 +108,28 @@ exports.registerUser = async (req, res, next) => {
 exports.updateProfile = async (req, res, next) => {
   try {
     const userId = req.user.id;
-    const { name, email, password } = req.body;
+    const { username, email, password } = req.body;
 
     const user = await User.findByPk(userId);
     if (!user) {
       return res.status(404).json({ message: "Usuario no encontrado" });
     }
 
-    // Validar que el nuevo correo no esté en uso por otro usuario
+    // Si el usuario quiere cambiar su correo electrónico
     if (email && email !== user.email) {
-      const existingEmailUser = await User.findOne({
-        where: { email },
-      });
-
-      if (existingEmailUser && existingEmailUser.id !== user.id) {
-        return res
-          .status(400)
-          .json({ message: "El correo ya está en uso por otro usuario" });
+      const existingUser = await User.findOne({ where: { email } });
+      if (existingUser && existingUser.id !== user.id) {
+        return res.status(400).json({ message: "El correo ya está en uso" });
       }
-
       user.email = email;
     }
 
-    if (name) {
-      user.name = name;
+    // Si el usuario quiere cambiar su nombre de usuario
+    if (username) {
+      user.username = username;
     }
 
+    // Si el usuario quiere cambiar su contraseña
     if (password) {
       const saltRounds = 10;
       const hashedPassword = await bcrypt.hash(password, saltRounds);
@@ -146,7 +142,7 @@ exports.updateProfile = async (req, res, next) => {
       message: "Perfil actualizado correctamente",
       user: {
         id: user.id,
-        name: user.name,
+        username: user.username,
         email: user.email,
       },
     });

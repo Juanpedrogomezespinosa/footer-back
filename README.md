@@ -89,9 +89,8 @@ backend/
 🔎 Añadir la posibilidad de filtrar en el front, por talla, color, etc.
 🔎 Añadir la posibilidad de buscar por texto en el navbar
 📊 Añadir la posibilidad de ver el historial de compras ✅
-📊 Añadir la posibilidad de ver pedidos en curso [Esta no sé si hacerla o no]
 ✏️ Posibilidad de editar perfil de usuario (cambiar contraseña, correo, nombre, etc)
-✏️ Posibilidad de eliminar perfil
+✏️ Posibilidad de eliminar perfil ✅
 ✏️ Añadir "olvidé mi contraseña" en el formulario de login, con correo incluido
 🙎‍♂️ Añadir que los usuarios puedan comentar en los productos y hacer calificar el producto con estrellas
 ⭐️ Hacer que cada producto tenga una puntuación en base a las estrellas que le hayan dado los usuarios
