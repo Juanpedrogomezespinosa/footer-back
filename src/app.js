@@ -33,7 +33,7 @@ const authenticationRoutes = require("./routes/authRoutes");
 const cartRoutes = require("./routes/cartRoutes");
 const orderRoutes = require("./routes/orderRoutes");
 const commentRoutes = require("./routes/commentRoutes");
-const ratingRoutes = require("./routes/ratingRoutes"); // ✅ AÑADIDO
+const ratingRoutes = require("./routes/ratingRoutes");
 
 // Rutas
 app.use("/api/products", productRoutes);
@@ -42,7 +42,7 @@ app.use("/api/auth", authenticationRoutes);
 app.use("/api/cart", authenticationMiddleware, cartRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/comments", commentRoutes);
-app.use("/api/ratings", ratingRoutes); // ✅ AÑADIDO
+app.use("/api/ratings", ratingRoutes);
 
 // Middleware para manejo de errores
 app.use(errorHandlingMiddleware);
