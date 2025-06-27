@@ -191,8 +191,8 @@ Footer es una aplicación web backend para una tienda online de ropa y zapatos. 
    DB_PASSWORD=
    DB_HOST=127.0.0.1
    JWT_SECRET=tu-secret-jwt
-   STRIPE_SECRET_KEY=sk_test*...
-   STRIPE*PUBLISHABLE_KEY=pk_test*...
+   STRIPE_SECRET_KEY=
+   STRIPE*PUBLISHABLE_KEY=
 
 4. Instalar dependencias:
 
