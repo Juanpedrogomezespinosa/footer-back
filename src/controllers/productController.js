@@ -1,5 +1,6 @@
-const { Op } = require("sequelize");
+const { Op, fn, col } = require("sequelize");
 const Product = require("../models/productModel");
+const Rating = require("../models/ratingModel");
 
 const validSortFields = ["price", "created_at", "name"];
 const validSortDirections = ["ASC", "DESC"];
@@ -25,8 +26,8 @@ exports.getAllProducts = async (req, res, next) => {
       order = "DESC",
     } = req.query;
 
-    page = parseInt(page);
-    limit = parseInt(limit);
+    page = parseInt(page, 10);
+    limit = parseInt(limit, 10);
 
     if (isNaN(page) || page < 1) {
       return res.status(400).json({ message: "Página inválida" });
@@ -47,30 +48,65 @@ exports.getAllProducts = async (req, res, next) => {
     order = order.toUpperCase();
     if (!validSortDirections.includes(order)) {
       return res.status(400).json({
-        message: `Dirección de ordenación inválida. Usa ASC o DESC`,
+        message: "Dirección de ordenación inválida. Usa ASC o DESC",
       });
     }
 
     const where = {};
 
-    if (name) where.name = { [Op.like]: `%${name}%` };
+    if (name) {
+      where.name = { [Op.like]: `%${name}%` };
+    }
+
     if (minPrice || maxPrice) {
       where.price = {};
-      if (minPrice) where.price[Op.gte] = Number(minPrice);
-      if (maxPrice) where.price[Op.lte] = Number(maxPrice);
+      if (minPrice) {
+        where.price[Op.gte] = Number(minPrice);
+      }
+      if (maxPrice) {
+        where.price[Op.lte] = Number(maxPrice);
+      }
     }
-    if (stock === "true") where.stock = { [Op.gt]: 0 };
-    else if (stock === "false") where.stock = 0;
 
-    if (size) where.size = size;
-    if (color) where.color = color;
-    if (brand) where.brand = brand;
-    if (category) where.category = category;
-    if (gender) where.gender = gender;
-    if (material) where.material = material;
-    if (season) where.season = season;
-    if (is_new === "true") where.is_new = true;
-    else if (is_new === "false") where.is_new = false;
+    if (stock === "true") {
+      where.stock = { [Op.gt]: 0 };
+    } else if (stock === "false") {
+      where.stock = 0;
+    }
+
+    if (size) {
+      where.size = size;
+    }
+
+    if (color) {
+      where.color = color;
+    }
+
+    if (brand) {
+      where.brand = brand;
+    }
+
+    if (category) {
+      where.category = category;
+    }
+
+    if (gender) {
+      where.gender = gender;
+    }
+
+    if (material) {
+      where.material = material;
+    }
+
+    if (season) {
+      where.season = season;
+    }
+
+    if (is_new === "true") {
+      where.is_new = true;
+    } else if (is_new === "false") {
+      where.is_new = false;
+    }
 
     const offset = (page - 1) * limit;
 
@@ -99,15 +135,31 @@ exports.getAllProducts = async (req, res, next) => {
 exports.getProductById = async (req, res) => {
   try {
     const { id } = req.params;
+
     const product = await Product.findByPk(id);
+
     if (!product) {
       return res.status(404).json({ message: "Producto no encontrado" });
     }
-    res.json(product);
+
+    const average = await Rating.findOne({
+      attributes: [[fn("AVG", col("stars")), "averageRating"]],
+      where: { productId: id },
+      raw: true,
+    });
+
+    console.log("Average rating raw:", average);
+
+    const averageRating = average?.averageRating
+      ? parseFloat(parseFloat(average.averageRating).toFixed(2))
+      : 0;
+
+    res.json({ ...product.toJSON(), averageRating });
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Error al obtener producto", error: error.message });
+    res.status(500).json({
+      message: "Error al obtener producto",
+      error: error.message,
+    });
   }
 };
 
@@ -148,6 +200,7 @@ exports.deleteProduct = async (req, res) => {
     const { id } = req.params;
 
     const product = await Product.findByPk(id);
+
     if (!product) {
       return res.status(404).json({ message: "Producto no encontrado" });
     }
@@ -172,7 +225,6 @@ exports.deleteProduct = async (req, res) => {
   }
 };
 
-// ✅ NUEVA función: subir imagen de producto
 exports.uploadProductImage = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -182,6 +234,7 @@ exports.uploadProductImage = async (req, res, next) => {
     }
 
     const product = await Product.findByPk(id);
+
     if (!product) {
       return res.status(404).json({ message: "Producto no encontrado" });
     }

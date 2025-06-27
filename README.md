@@ -99,8 +99,8 @@ backend/
 ✏️ Posibilidad de eliminar perfil ✅
 ✏️ Añadir "olvidé mi contraseña" en el formulario de login, con correo incluido
 🙎‍♂️ Añadir que los usuarios puedan comentar en los productos✅
-🙎‍♂️ Posiblidad de calificar el producto con estrellas
-⭐️ Hacer que cada producto tenga una puntuación en base a las estrellas que le hayan dado los usuarios
+🙎‍♂️ Posiblidad de calificar el producto con estrellas ✅
+⭐️ Hacer que cada producto tenga una puntuación en base a las estrellas que le hayan dado los usuarios ✅
 
 🔸 Nivel 2 – Medio / Avanzado
 🖼 Subida de imágenes para productos (solo admin)✅
@@ -112,6 +112,7 @@ backend/
 📦 Gestión automática de stock al comprar ✅
 🔐 Login con Gmail (OAuth 2.0 con Google)
 📝 Permisos para admins crear y editar anuncios/productos ✅
+⭐️ Filtrar por número de estrellas, más a menos estrellas, etc
 ⁇ Crear página 404 en el front
 
 🔺 Nivel 3 – Avanzado
