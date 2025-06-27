@@ -23,9 +23,12 @@ const Product = sequelize.define(
     stock: {
       type: DataTypes.INTEGER,
       defaultValue: 0,
+      validate: {
+        min: 0,
+      },
     },
     size: {
-      type: DataTypes.STRING(10), // Ej: "S", "M", "L", "XL"
+      type: DataTypes.STRING(10),
       allowNull: true,
     },
     color: {

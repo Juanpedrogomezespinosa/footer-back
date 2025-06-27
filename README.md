@@ -14,6 +14,7 @@ backend/
 │ ├── controllers/ # Lógica de negocio
 │ │ ├── orderController.js
 │ │ ├── productController.js
+│ │ ├── ratingController.js
 │ │ ├── commentController.js
 │ │ ├── authController.js
 │ │ ├── cartController.js
@@ -31,10 +32,12 @@ backend/
 │ │ ├── userModel.js
 │ │ └── orderModel.js
 │ │ └── commentModel.js
+│ │ └── ratingModel.js
 │ │
 │ ├── routes/ # Endpoints de la API
 │ │ ├── productRoutes.js
 │ │ ├── commentRoutes.js
+│ │ ├── ratingRoutes.js
 │ │ ├── authRoutes.js
 │ │ ├── cartRoutes.js
 │ │ ├── orderRoutes.js
@@ -95,7 +98,7 @@ backend/
 ✏️ Posibilidad de editar perfil de usuario (cambiar contraseña, correo, nombre, etc) ✅
 ✏️ Posibilidad de eliminar perfil ✅
 ✏️ Añadir "olvidé mi contraseña" en el formulario de login, con correo incluido
-🙎‍♂️ Añadir que los usuarios puedan comentar en los productos
+🙎‍♂️ Añadir que los usuarios puedan comentar en los productos✅
 🙎‍♂️ Posiblidad de calificar el producto con estrellas
 ⭐️ Hacer que cada producto tenga una puntuación en base a las estrellas que le hayan dado los usuarios
 
@@ -115,24 +118,3 @@ backend/
 🔗 Conexión del backend con frontend (React u otro)
 🛡 Seguridad avanzada: rate limiting, XSS, validación profunda
 🧠 IA para búsquedas conversacionales (“quiero unos zapatos azules del número 45”) (biblioteca tensorflow JS )
-
-credenciales admin:
-
-{
-"username": "Footer Admin",
-"email": "admFooter@gmail.com",
-"password": "Footer.admin32"
-}
-
-usuario de prueba:
-{
-"username": "juanpe",
-"email": "juanpe@example.com",
-"password": "123456"
-}
-
-{
-"username": "juanpe",
-"email": "juanpedrogomezespinosa@gmail.com",
-"password": "123456"
-}

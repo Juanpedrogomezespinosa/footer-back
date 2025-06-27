@@ -5,19 +5,20 @@ const Product = require("./productModel");
 const Order = require("./orderModel");
 const OrderItem = require("./orderItemModel");
 const CartItem = require("./cartItemModel");
-const Comment = require("./commentModel"); // Nuevo modelo Comment
+const Comment = require("./commentModel");
+const Rating = require("./ratingModel");
 
-// Si algún modelo define un método .associate, se ejecuta para establecer relaciones
 const models = {
   User,
   Product,
   Order,
   OrderItem,
   CartItem,
-  Comment, // Añadido Comment al listado de modelos
+  Comment,
+  Rating,
 };
 
-// Asociaciones por modelo (si existen)
+// Ejecutar métodos associate definidos en cada modelo (si existen)
 Object.values(models).forEach((model) => {
   if (typeof model.associate === "function") {
     model.associate(models);
@@ -25,7 +26,7 @@ Object.values(models).forEach((model) => {
 });
 
 /**
- * Asociaciones explícitas entre modelos
+ * Asociaciones explícitas
  */
 
 // Usuario - Orden
@@ -60,8 +61,6 @@ CartItem.belongsTo(User, { foreignKey: "userId" });
 Product.hasMany(CartItem, { foreignKey: "productId" });
 CartItem.belongsTo(Product, { foreignKey: "productId" });
 
-// Nuevas asociaciones para comentarios
-
 // Usuario - Comentarios
 User.hasMany(Comment, { foreignKey: "userId", onDelete: "CASCADE" });
 Comment.belongsTo(User, { foreignKey: "userId" });
@@ -70,6 +69,14 @@ Comment.belongsTo(User, { foreignKey: "userId" });
 Product.hasMany(Comment, { foreignKey: "productId", onDelete: "CASCADE" });
 Comment.belongsTo(Product, { foreignKey: "productId" });
 
+// Usuario - Valoraciones
+User.hasMany(Rating, { foreignKey: "userId", onDelete: "CASCADE" });
+Rating.belongsTo(User, { foreignKey: "userId" });
+
+// Producto - Valoraciones
+Product.hasMany(Rating, { foreignKey: "productId", onDelete: "CASCADE" });
+Rating.belongsTo(Product, { foreignKey: "productId" });
+
 module.exports = {
   sequelize,
   User,
@@ -77,5 +84,6 @@ module.exports = {
   Order,
   OrderItem,
   CartItem,
-  Comment, // Exportar Comment también
+  Comment,
+  Rating,
 };
