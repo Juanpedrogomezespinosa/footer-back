@@ -57,14 +57,21 @@ exports.getAllProducts = async (request, response, next) => {
 
     const where = {};
 
-    if (name) where.name = { [Op.like]: `%${name}%` };
+    if (name) {
+      where.name = { [Op.like]: `%${name}%` };
+    }
+
     if (minPrice || maxPrice) {
       where.price = {};
       if (minPrice) where.price[Op.gte] = Number(minPrice);
       if (maxPrice) where.price[Op.lte] = Number(maxPrice);
     }
-    if (stock === "true") where.stock = { [Op.gt]: 0 };
-    else if (stock === "false") where.stock = 0;
+
+    if (stock === "true") {
+      where.stock = { [Op.gt]: 0 };
+    } else if (stock === "false") {
+      where.stock = 0;
+    }
 
     if (size) where.size = size;
     if (color) where.color = color;
@@ -74,8 +81,11 @@ exports.getAllProducts = async (request, response, next) => {
     if (material) where.material = material;
     if (season) where.season = season;
 
-    if (is_new === "true") where.is_new = true;
-    else if (is_new === "false") where.is_new = false;
+    if (is_new === "true") {
+      where.is_new = true;
+    } else if (is_new === "false") {
+      where.is_new = false;
+    }
 
     const offset = (page - 1) * limit;
 
