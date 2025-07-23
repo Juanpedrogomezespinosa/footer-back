@@ -4,7 +4,13 @@ const Rating = require("../models/ratingModel");
 const fs = require("fs");
 const path = require("path");
 
-const validSortFields = ["price", "created_at", "name"];
+const validSortFields = [
+  "price",
+  "created_at",
+  "name",
+  "averageRating",
+  "ratingCount",
+];
 const validSortDirections = ["ASC", "DESC"];
 
 exports.getAllProducts = async (request, response, next) => {
@@ -75,11 +81,22 @@ exports.getAllProducts = async (request, response, next) => {
 
     if (size) where.size = size;
     if (color) where.color = color;
-    if (brand) where.brand = brand;
+
+    if (brand) {
+      where.brand = Array.isArray(brand) ? { [Op.in]: brand } : brand;
+    }
+
     if (category) where.category = category;
-    if (gender) where.gender = gender;
+
+    if (gender) {
+      where.gender = Array.isArray(gender) ? { [Op.in]: gender } : gender;
+    }
+
     if (material) where.material = material;
-    if (season) where.season = season;
+
+    if (season) {
+      where.season = Array.isArray(season) ? { [Op.in]: season } : season;
+    }
 
     if (is_new === "true") {
       where.is_new = true;
@@ -93,7 +110,10 @@ exports.getAllProducts = async (request, response, next) => {
       where,
       limit,
       offset,
-      order: [[sortBy, order]],
+      order:
+        sortBy === "averageRating" || sortBy === "ratingCount"
+          ? undefined
+          : [[sortBy, order]],
     });
 
     const productIds = products.map((product) => product.id);
@@ -122,11 +142,11 @@ exports.getAllProducts = async (request, response, next) => {
       };
     });
 
-    const productsResponse = products
+    let productsResponse = products
       .map((product) => {
         const plainProduct = product.toJSON();
         const rating = ratingsMap[product.id] || {
-          averageRating: null,
+          averageRating: 0,
           ratingCount: 0,
         };
         return {
@@ -138,6 +158,17 @@ exports.getAllProducts = async (request, response, next) => {
       .filter((product) =>
         minRating ? product.averageRating >= parseFloat(minRating) : true
       );
+
+    // Ordenar en memoria si es necesario
+    if (sortBy === "averageRating" || sortBy === "ratingCount") {
+      productsResponse.sort((a, b) => {
+        const aValue = a[sortBy];
+        const bValue = b[sortBy];
+
+        if (order === "ASC") return aValue - bValue;
+        return bValue - aValue;
+      });
+    }
 
     const totalPages = Math.ceil(count / limit);
 
