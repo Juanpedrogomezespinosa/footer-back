@@ -28,13 +28,12 @@ exports.getUserById = async (req, res, next) => {
   }
 };
 
-// Eliminar un usuario (administrador puede eliminar a cualquiera, usuario solo a sí mismo)
+// Eliminar un usuario (admin o el propio usuario)
 exports.deleteUser = async (req, res, next) => {
   try {
     const userIdToDelete = parseInt(req.params.id, 10);
     const requester = req.user;
 
-    // Solo administradores o el dueño del perfil puede eliminar
     if (requester.role !== "admin" && requester.userId !== userIdToDelete) {
       return res.status(403).json({
         message: "No tiene permisos para eliminar este usuario",
@@ -80,17 +79,23 @@ exports.getOrderHistory = async (req, res, next) => {
   }
 };
 
-// Registro de usuario con envío de correo de bienvenida
+// Registro de usuario desde panel (si se mantiene esta ruta aparte)
 exports.registerUser = async (req, res, next) => {
   try {
     const { email, name, password } = req.body;
 
     const existingUser = await User.findOne({ where: { email } });
     if (existingUser) {
-      return res.status(400).json({ message: "El correo ya está registrado" });
+      return res.status(409).json({ message: "El correo ya está registrado" });
     }
 
-    const user = await User.create({ email, name, password });
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const user = await User.create({
+      email,
+      username: name,
+      password: hashedPassword,
+    });
 
     const html = `
       <h1>Bienvenido ${name} a nuestra tienda</h1>
@@ -115,30 +120,26 @@ exports.updateProfile = async (req, res, next) => {
       return res.status(404).json({ message: "Usuario no encontrado" });
     }
 
-    // Si el usuario quiere cambiar su correo electrónico
     if (email && email !== user.email) {
       const existingUser = await User.findOne({ where: { email } });
       if (existingUser && existingUser.id !== user.id) {
-        return res.status(400).json({ message: "El correo ya está en uso" });
+        return res.status(409).json({ message: "El correo ya está en uso" });
       }
       user.email = email;
     }
 
-    // Si el usuario quiere cambiar su nombre de usuario
     if (username) {
       user.username = username;
     }
 
-    // Si el usuario quiere cambiar su contraseña
     if (password) {
-      const saltRounds = 10;
-      const hashedPassword = await bcrypt.hash(password, saltRounds);
+      const hashedPassword = await bcrypt.hash(password, 10);
       user.password = hashedPassword;
     }
 
     await user.save();
 
-    return res.json({
+    res.json({
       message: "Perfil actualizado correctamente",
       user: {
         id: user.id,
