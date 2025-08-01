@@ -21,7 +21,12 @@ exports.register = async (req, res) => {
   try {
     const { username, email, password, role } = req.body;
 
-    // Validar duplicado por email
+    // Validar que todos los campos necesarios están presentes
+    if (!username || !email || !password) {
+      return res.status(400).json({ message: "Faltan campos obligatorios." });
+    }
+
+    // Comprobar si ya existe usuario con ese email
     const existingUser = await User.findOne({ where: { email } });
     if (existingUser) {
       return res.status(409).json({
@@ -29,8 +34,10 @@ exports.register = async (req, res) => {
       });
     }
 
+    // Encriptar contraseña
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // Crear usuario
     const user = await User.create({
       username,
       email,
@@ -38,10 +45,17 @@ exports.register = async (req, res) => {
       role: role || "client",
     });
 
+    // Generar token JWT
     const token = generateToken(user);
 
-    await sendWelcomeEmail(email, username);
+    // Enviar correo de bienvenida (no interrumpir el registro si falla)
+    try {
+      await sendWelcomeEmail(email, username);
+    } catch (emailError) {
+      console.warn("Error al enviar correo de bienvenida:", emailError.message);
+    }
 
+    // Responder con usuario creado y token
     res.status(201).json({
       message: "Usuario registrado correctamente",
       user: {
@@ -53,14 +67,16 @@ exports.register = async (req, res) => {
       token,
     });
   } catch (error) {
-    // Capturar errores de clave duplicada si pasan por Sequelize
+    console.error("Error en registro:", error);
+
+    // Control específico para errores únicos en email (duplicados)
     if (error.name === "SequelizeUniqueConstraintError") {
       return res.status(409).json({
         message: "Este correo ya está registrado.",
       });
     }
 
-    console.error("Error en registro:", error);
+    // Error genérico
     res.status(500).json({ message: "Error al registrar usuario." });
   }
 };
