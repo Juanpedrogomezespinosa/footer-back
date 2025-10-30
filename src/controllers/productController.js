@@ -13,6 +13,7 @@ const validSortFields = [
 ];
 const validSortDirections = ["ASC", "DESC"];
 
+// --- SIN CAMBIOS AQUÍ ---
 exports.getAllProducts = async (request, response, next) => {
   try {
     let {
@@ -86,7 +87,11 @@ exports.getAllProducts = async (request, response, next) => {
       where.brand = Array.isArray(brand) ? { [Op.in]: brand } : brand;
     }
 
-    if (category) where.category = category;
+    if (category) {
+      where.category = Array.isArray(category)
+        ? { [Op.in]: category }
+        : category;
+    }
 
     if (gender) {
       where.gender = Array.isArray(gender) ? { [Op.in]: gender } : gender;
@@ -106,18 +111,28 @@ exports.getAllProducts = async (request, response, next) => {
 
     const offset = (page - 1) * limit;
 
-    const { count, rows: products } = await Product.findAndCountAll({
+    const isRatingSort = sortBy === "averageRating" || sortBy === "ratingCount";
+
+    const queryOptions = {
       where,
-      limit,
-      offset,
-      order:
-        sortBy === "averageRating" || sortBy === "ratingCount"
-          ? undefined
-          : [[sortBy, order]],
-    });
+      order: isRatingSort ? undefined : [[sortBy, order]],
+      limit: isRatingSort ? undefined : limit,
+      offset: isRatingSort ? undefined : offset,
+    };
+
+    let products;
+    let totalItems;
+
+    if (isRatingSort) {
+      products = await Product.findAll(queryOptions);
+      totalItems = products.length;
+    } else {
+      const { count, rows } = await Product.findAndCountAll(queryOptions);
+      products = rows;
+      totalItems = count;
+    }
 
     const productIds = products.map((product) => product.id);
-
     let ratings = [];
     if (productIds.length > 0) {
       ratings = await Rating.findAll({
@@ -127,7 +142,7 @@ exports.getAllProducts = async (request, response, next) => {
           [fn("COUNT", col("stars")), "ratingCount"],
         ],
         where: {
-          product_id: productIds,
+          product_id: { [Op.in]: productIds },
         },
         group: ["product_id"],
         raw: true,
@@ -159,8 +174,11 @@ exports.getAllProducts = async (request, response, next) => {
         minRating ? product.averageRating >= parseFloat(minRating) : true
       );
 
-    // Ordenar en memoria si es necesario
-    if (sortBy === "averageRating" || sortBy === "ratingCount") {
+    if (isRatingSort) {
+      totalItems = productsResponse.length;
+    }
+
+    if (isRatingSort) {
       productsResponse.sort((a, b) => {
         const aValue = a[sortBy];
         const bValue = b[sortBy];
@@ -170,14 +188,18 @@ exports.getAllProducts = async (request, response, next) => {
       });
     }
 
-    const totalPages = Math.ceil(count / limit);
+    if (isRatingSort) {
+      productsResponse = productsResponse.slice(offset, offset + limit);
+    }
+
+    const totalPages = Math.ceil(totalItems / limit);
 
     response.json({
       currentPage: page,
       totalPages,
-      totalItems: count,
+      totalItems,
       nextPage: page < totalPages ? page + 1 : null,
-      prevPage: page > 1 ? page - 1 : null,
+      prevPage: page > 1 ? page + 1 : null,
       products: productsResponse,
     });
   } catch (error) {
@@ -186,6 +208,7 @@ exports.getAllProducts = async (request, response, next) => {
   }
 };
 
+// --- SIN CAMBIOS AQUÍ ---
 exports.getProductById = async (request, response, next) => {
   try {
     const { id } = request.params;
@@ -213,6 +236,7 @@ exports.getProductById = async (request, response, next) => {
   }
 };
 
+// --- MEJORA DE MANEJO DE ERRORES ---
 exports.createProduct = async (request, response, next) => {
   try {
     const {
@@ -224,6 +248,7 @@ exports.createProduct = async (request, response, next) => {
       color,
       brand,
       category,
+      sub_category,
       gender,
       material,
       season,
@@ -241,6 +266,7 @@ exports.createProduct = async (request, response, next) => {
       color,
       brand,
       category,
+      sub_category,
       gender,
       material,
       season,
@@ -250,11 +276,25 @@ exports.createProduct = async (request, response, next) => {
 
     response.status(201).json(newProduct);
   } catch (error) {
+    // --- NUEVA LÓGICA ---
+    // Si el error es un error de validación de Sequelize...
+    if (error.name === "SequelizeValidationError") {
+      // Mapeamos los mensajes de error para el cliente
+      const messages = error.errors.map((err) => err.message);
+      // Devolvemos un 400 Bad Request
+      return response
+        .status(400)
+        .json({ message: "Error de validación", errors: messages });
+    }
+    // --- FIN NUEVA LÓGICA ---
+
+    // Para cualquier otro tipo de error, lo pasamos al manejador global
     console.error("Error en createProduct:", error);
     next(error);
   }
 };
 
+// --- MEJORA DE MANEJO DE ERRORES ---
 exports.updateProduct = async (request, response, next) => {
   try {
     const { id } = request.params;
@@ -274,6 +314,7 @@ exports.updateProduct = async (request, response, next) => {
       color,
       brand,
       category,
+      sub_category,
       gender,
       material,
       season,
@@ -303,20 +344,31 @@ exports.updateProduct = async (request, response, next) => {
     product.color = color ?? product.color;
     product.brand = brand ?? product.brand;
     product.category = category ?? product.category;
+    product.sub_category = sub_category ?? product.sub_category;
     product.gender = gender ?? product.gender;
     product.material = material ?? product.material;
     product.season = season ?? product.season;
     product.is_new = is_new ?? product.is_new;
 
-    await product.save();
+    await product.save(); // El .save() también dispara las validaciones
 
     response.json(product);
   } catch (error) {
+    // --- NUEVA LÓGICA ---
+    if (error.name === "SequelizeValidationError") {
+      const messages = error.errors.map((err) => err.message);
+      return response
+        .status(400)
+        .json({ message: "Error de validación", errors: messages });
+    }
+    // --- FIN NUEVA LÓGICA ---
+
     console.error("Error en updateProduct:", error);
     next(error);
   }
 };
 
+// --- SIN CAMBIOS AQUÍ ---
 exports.deleteProduct = async (request, response, next) => {
   try {
     const { id } = request.params;

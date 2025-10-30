@@ -39,7 +39,30 @@ const Product = sequelize.define(
       type: DataTypes.STRING(50),
       allowNull: true,
     },
+
+    // --- MEJORA DE VALIDACIÓN ---
     category: {
+      type: DataTypes.ENUM("zapatillas", "ropa", "complementos"),
+      allowNull: false,
+      validate: {
+        // No permite un valor nulo
+        notNull: {
+          msg: "La categoría no puede ser nula.",
+        },
+        // No permite un string vacío
+        notEmpty: {
+          msg: "La categoría no puede estar vacía.",
+        },
+        // Se asegura de que el valor esté en la lista del ENUM
+        isIn: {
+          args: [["zapatillas", "ropa", "complementos"]],
+          msg: "Categoría inválida. Debe ser 'zapatillas', 'ropa' o 'complementos'.",
+        },
+      },
+    },
+    // --- FIN MEJORA ---
+
+    sub_category: {
       type: DataTypes.STRING(50),
       allowNull: true,
     },
