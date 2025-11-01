@@ -1,4 +1,5 @@
-const { User, Order, OrderItem, Product } = require("../models"); // <-- 1. IMPORTAR Product
+// --- 👇 CAMBIO: Importamos CartItem ---
+const { User, Order, OrderItem, Product, CartItem } = require("../models");
 const { sendOrderConfirmationEmail } = require("../services/emailService");
 const { createCheckoutSession } = require("../services/paymentService");
 const { frontendUrl } = require("../config/env");
@@ -35,10 +36,9 @@ const createOrder = async (req, res, next) => {
 
       return {
         price_data: {
-          currency: "eur", // Cambia la moneda si quieres
+          currency: "eur",
           product_data: {
             name: item.productName,
-            // Puedes agregar descripción o imagen aquí si quieres
           },
           unit_amount: Math.round(item.price * 100), // Precio en céntimos
         },
@@ -56,9 +56,12 @@ const createOrder = async (req, res, next) => {
       });
     }
 
-    // --- 👇 CAMBIO: LÓGICA DE EMAIL ELIMINADA ---
-    // El email NO se envía aquí. Se enviará cuando el usuario
-    // cargue la página de confirmación.
+    // --- 👇 CAMBIO: Vaciamos el carrito DESPUÉS de crear la orden ---
+    await CartItem.destroy({ where: { userId: userId } });
+    // --- FIN DEL CAMBIO ---
+
+    // Obtener datos del usuario para enviar email
+    const user = await User.findByPk(userId);
     // --- FIN DEL CAMBIO ---
 
     // --- 👇 CAMBIO: URLs de Stripe corregidas ---
@@ -95,8 +98,7 @@ const getOrderHistory = async (req, res, next) => {
 
     const orders = await Order.findAll({
       where: { userId },
-      // 👇 CAMBIO: Incluimos el modelo Product
-      include: [{ model: OrderItem, include: [Product] }],
+      include: [{ model: OrderItem, include: [Product] }], // <-- Incluimos Product
       order: [["createdAt", "DESC"]],
     });
 
