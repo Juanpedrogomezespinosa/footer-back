@@ -1,4 +1,4 @@
-const { User, Order, OrderItem } = require("../models");
+const { User, Order, OrderItem, Product } = require("../models"); // <-- 1. IMPORTAR Product
 const { sendOrderConfirmationEmail } = require("../services/emailService");
 const { createCheckoutSession } = require("../services/paymentService");
 const { frontendUrl } = require("../config/env");
@@ -56,25 +56,17 @@ const createOrder = async (req, res, next) => {
       });
     }
 
-    // Obtener datos del usuario para enviar email
-    const user = await User.findByPk(userId);
+    // --- 👇 CAMBIO: LÓGICA DE EMAIL ELIMINADA ---
+    // El email NO se envía aquí. Se enviará cuando el usuario
+    // cargue la página de confirmación.
+    // --- FIN DEL CAMBIO ---
 
-    try {
-      console.log("📧 Enviando email de confirmación a", user.email);
-      await sendOrderConfirmationEmail(
-        user.email,
-        user.username,
-        itemsForEmail,
-        total
-      );
-      console.log("✅ Email de confirmación enviado correctamente");
-    } catch (emailError) {
-      console.error("❌ Error enviando email de confirmación:", emailError);
-    }
-
-    // Crear sesión de checkout en Stripe
-    const successUrl = `${frontendUrl}/success?session_id={CHECKOUT_SESSION_ID}`;
-    const cancelUrl = `${frontendUrl}/cancel`;
+    // --- 👇 CAMBIO: URLs de Stripe corregidas ---
+    // Redirige a tu página de confirmación con el ID de la orden
+    const successUrl = `${frontendUrl}/confirmation/${order.id}`;
+    // Si cancelan, que vuelvan al carrito
+    const cancelUrl = `${frontendUrl}/cart`;
+    // --- FIN DEL CAMBIO ---
 
     const session = await createCheckoutSession(
       lineItems,
@@ -103,7 +95,8 @@ const getOrderHistory = async (req, res, next) => {
 
     const orders = await Order.findAll({
       where: { userId },
-      include: [{ model: OrderItem }],
+      // 👇 CAMBIO: Incluimos el modelo Product
+      include: [{ model: OrderItem, include: [Product] }],
       order: [["createdAt", "DESC"]],
     });
 
@@ -114,7 +107,66 @@ const getOrderHistory = async (req, res, next) => {
   }
 };
 
+// --- 👇 CAMBIO: NUEVA FUNCIÓN AÑADIDA ---
+/**
+ * Obtiene una orden específica por ID,
+ * (para la página de confirmación)
+ */
+const getOrderById = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const orderId = req.params.id;
+
+    const order = await Order.findOne({
+      where: {
+        id: orderId,
+        userId: userId, // El usuario solo puede ver sus propias órdenes
+      },
+      include: [
+        {
+          model: OrderItem,
+          include: [Product], // Incluimos los detalles del producto
+        },
+        User, // Incluimos el usuario para coger el email
+      ],
+    });
+
+    if (!order) {
+      return res.status(404).json({ message: "Pedido no encontrado" });
+    }
+
+    // OPCIONAL: Aquí es un *mejor* sitio para enviar el email,
+    // ya que el usuario acaba de llegar desde Stripe (pago exitoso)
+    try {
+      const itemsForEmail = order.OrderItems.map((item) => ({
+        productName: item.Product.name,
+        quantity: item.quantity,
+        price: item.price,
+      }));
+
+      console.log("📧 (Confirmación) Enviando email a", order.User.email);
+      await sendOrderConfirmationEmail(
+        order.User.email,
+        order.User.username,
+        itemsForEmail,
+        order.total
+      );
+      console.log("✅ (Confirmación) Email enviado correctamente");
+    } catch (emailError) {
+      console.error("❌ Error enviando email de confirmación:", emailError);
+      // No detenemos la respuesta al usuario si el email falla
+    }
+
+    res.json(order);
+  } catch (error) {
+    console.error("Error en getOrderById:", error);
+    next(error);
+  }
+};
+// --- FIN DE LA NUEVA FUNCIÓN ---
+
 module.exports = {
   createOrder,
   getOrderHistory,
+  getOrderById, // <-- 3. Exportamos la nueva función
 };
