@@ -1,4 +1,6 @@
 const bcrypt = require("bcrypt");
+const fs = require("fs");
+const path = require("path");
 const { User, Order, OrderItem, Product } = require("../models");
 const sendEmail = require("../utils/email");
 
@@ -80,14 +82,13 @@ exports.getOrderHistory = async (req, res, next) => {
 };
 
 /**
- * Obtener datos del perfil del usuario autenticado (incluye nuevos campos: apellidos, teléfono).
+ * Obtener datos del perfil del usuario autenticado (incluye avatarUrl).
  */
 exports.getProfileData = async (req, res, next) => {
   try {
     const userId = req.user.id;
 
     const user = await User.findByPk(userId, {
-      // 🆕 Ahora recupera todos los campos definidos en el modelo, excluyendo la contraseña
       attributes: { exclude: ["password"] },
     });
 
@@ -99,9 +100,10 @@ exports.getProfileData = async (req, res, next) => {
     return res.json({
       id: user.id,
       username: user.username,
-      lastName: user.lastName, // 🆕 Devuelve el apellido
+      lastName: user.lastName,
       email: user.email,
-      phone: user.phone, // 🆕 Devuelve el teléfono
+      phone: user.phone,
+      avatarUrl: user.avatarUrl, // 🆕 Devuelve el avatar
       role: user.role,
     });
   } catch (error) {
@@ -110,7 +112,7 @@ exports.getProfileData = async (req, res, next) => {
 };
 
 /**
- * Registro de usuario desde panel (mantiene la lógica existente).
+ * Registro de usuario (sin cambios en la lógica de avatar).
  */
 exports.registerUser = async (req, res, next) => {
   try {
@@ -144,12 +146,11 @@ exports.registerUser = async (req, res, next) => {
 };
 
 /**
- * Actualización del perfil del usuario autenticado (recibe y guarda apellidos y teléfono).
+ * Actualización de datos textuales del perfil (sin incluir subida de avatar).
  */
 exports.updateProfile = async (req, res, next) => {
   try {
     const userId = req.user.id;
-    // 🆕 Capturamos los nuevos campos del cuerpo
     const { username, email, password, lastName, phone } = req.body;
 
     const user = await User.findByPk(userId);
@@ -157,7 +158,6 @@ exports.updateProfile = async (req, res, next) => {
       return res.status(404).json({ message: "Usuario no encontrado" });
     }
 
-    // Actualización de email
     if (email && email !== user.email) {
       const existingUser = await User.findOne({ where: { email } });
       if (existingUser && existingUser.id !== user.id) {
@@ -166,12 +166,10 @@ exports.updateProfile = async (req, res, next) => {
       user.email = email;
     }
 
-    // Actualización de username
     if (username) {
       user.username = username;
     }
 
-    // 🆕 Actualización de nuevos campos: usamos el valor o null si está vacío/no existe.
     user.lastName = lastName || null;
     user.phone = phone || null;
 
@@ -187,12 +185,67 @@ exports.updateProfile = async (req, res, next) => {
       user: {
         id: user.id,
         username: user.username,
-        lastName: user.lastName, // Devolvemos el valor actualizado
+        lastName: user.lastName,
         email: user.email,
-        phone: user.phone, // Devolvemos el valor actualizado
+        phone: user.phone,
+        avatarUrl: user.avatarUrl, // 🆕 Aseguramos devolver la URL del avatar
       },
     });
   } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * 🆕 NUEVA FUNCIÓN: Actualizar la imagen de perfil (avatar).
+ */
+exports.updateAvatar = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const user = await User.findByPk(userId);
+
+    if (!user) {
+      return res.status(404).json({ message: "Usuario no encontrado." });
+    }
+
+    // Multer guarda el archivo en req.file
+    if (!req.file) {
+      // Manejar error si el archivo no es válido (del fileFilter de Multer)
+      if (req.fileValidationError) {
+        return res.status(400).json({ message: req.fileValidationError });
+      }
+      return res
+        .status(400)
+        .json({ message: "No se proporcionó ningún archivo de imagen." });
+    }
+
+    // 1. Construir la ruta pública (la que usará el frontend)
+    // (Ej: /uploads/nombre-archivo.png)
+    const newAvatarPath = `/uploads/${req.file.filename}`;
+
+    // 2. Si el usuario ya tenía un avatar, borramos el archivo antiguo
+    if (user.avatarUrl) {
+      try {
+        // Construimos la ruta completa al archivo antiguo
+        const oldPath = path.join(__dirname, "..", user.avatarUrl);
+        if (fs.existsSync(oldPath)) {
+          fs.unlinkSync(oldPath);
+        }
+      } catch (err) {
+        console.warn("No se pudo eliminar el avatar anterior:", err.message);
+      }
+    }
+
+    // 3. Actualizar la base de datos con la nueva ruta
+    user.avatarUrl = newAvatarPath;
+    await user.save();
+
+    return res.json({
+      message: "Imagen de perfil actualizada correctamente.",
+      avatarUrl: newAvatarPath,
+    });
+  } catch (error) {
+    console.error("Error al actualizar la imagen de perfil:", error);
     next(error);
   }
 };

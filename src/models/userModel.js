@@ -13,7 +13,6 @@ const User = sequelize.define(
       type: DataTypes.STRING(50),
       allowNull: false,
     },
-    // 🆕 Nuevo campo para Apellidos
     lastName: {
       type: DataTypes.STRING(50),
       allowNull: true,
@@ -27,9 +26,13 @@ const User = sequelize.define(
       type: DataTypes.STRING(255),
       allowNull: false,
     },
-    // 🆕 Nuevo campo para Teléfono
     phone: {
       type: DataTypes.STRING(20),
+      allowNull: true,
+    },
+    // 🆕 Nuevo campo para la URL de la imagen de perfil
+    avatarUrl: {
+      type: DataTypes.STRING(255),
       allowNull: true,
     },
     role: {

@@ -36,6 +36,7 @@ const upload = multer({
     if (mimetype && extname) {
       return cb(null, true);
     }
+    // 🆕 Pequeña mejora: Pasar el error como un objeto Error
     cb(new Error("Solo se permiten imágenes (jpeg, jpg, png, gif)"));
   },
 });
