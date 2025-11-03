@@ -19,9 +19,6 @@ if (!fs.existsSync(uploadsDirectory)) {
 app.use(cors());
 app.use(express.json());
 
-// Sirve imágenes estáticamente desde la carpeta uploads dentro de src
-app.use("/uploads", express.static(uploadsDirectory));
-
 // Importar middlewares
 const authenticationMiddleware = require("./middlewares/authMiddleware");
 const errorHandlingMiddleware = require("./middlewares/errorHandler");
@@ -35,7 +32,7 @@ const orderRoutes = require("./routes/orderRoutes");
 const commentRoutes = require("./routes/commentRoutes");
 const ratingRoutes = require("./routes/ratingRoutes");
 
-// Rutas
+// 1. RUTAS API (MÁXIMA PRIORIDAD)
 app.use("/api/products", productRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/auth", authenticationRoutes);
@@ -44,7 +41,19 @@ app.use("/api/orders", orderRoutes);
 app.use("/api/comments", commentRoutes);
 app.use("/api/ratings", ratingRoutes);
 
-// Middleware para manejo de errores
+// 2. Servir archivos estáticos (solo imágenes, después de las rutas API)
+app.use("/uploads", express.static(uploadsDirectory));
+
+// --- MANEJADOR DE RUTA NO ENCONTRADA (404 JSON) ---
+// Esto captura cualquier solicitud que NO fue manejada por las rutas /api/* o /uploads/*
+app.use((req, res, next) => {
+  // Creamos un error 404 explícito que será procesado por errorHandler.js
+  const error = new Error(`Ruta de API no encontrada: ${req.originalUrl}`);
+  error.status = 404; // Establece el código de estado 404
+  next(error); // Pasa el error al manejador final
+});
+
+// Middleware para manejo de errores (Captura 404 y 500 y devuelve JSON)
 app.use(errorHandlingMiddleware);
 
 module.exports = app;

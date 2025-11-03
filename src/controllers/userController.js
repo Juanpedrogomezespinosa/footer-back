@@ -6,7 +6,7 @@ const sendEmail = require("../utils/email");
 exports.getAllUsers = async (req, res, next) => {
   try {
     const users = await User.findAll({ attributes: { exclude: ["password"] } });
-    res.json(users);
+    return res.json(users);
   } catch (error) {
     next(error);
   }
@@ -22,7 +22,7 @@ exports.getUserById = async (req, res, next) => {
     if (!user) {
       return res.status(404).json({ message: "Usuario no encontrado" });
     }
-    res.json(user);
+    return res.json(user);
   } catch (error) {
     next(error);
   }
@@ -46,7 +46,7 @@ exports.deleteUser = async (req, res, next) => {
     }
 
     await user.destroy();
-    res.json({ message: "Usuario eliminado correctamente" });
+    return res.json({ message: "Usuario eliminado correctamente" });
   } catch (error) {
     next(error);
   }
@@ -73,7 +73,33 @@ exports.getOrderHistory = async (req, res, next) => {
       order: [["createdAt", "DESC"]],
     });
 
-    res.json({ orders });
+    return res.json({ orders });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// 💡 FUNCIÓN CLAVE: Obtener datos del perfil autenticado
+exports.getProfileData = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+
+    const user = await User.findByPk(userId, {
+      attributes: { exclude: ["password"] },
+    });
+
+    if (!user) {
+      // 404 JSON (si el usuario del token fue eliminado)
+      return res.status(404).json({ message: "Usuario no encontrado" });
+    }
+
+    // Respuesta exitosa 200 JSON
+    return res.json({
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      role: user.role,
+    });
   } catch (error) {
     next(error);
   }
@@ -103,7 +129,9 @@ exports.registerUser = async (req, res, next) => {
     `;
     await sendEmail(email, "Bienvenido a nuestra tienda", html);
 
-    res.status(201).json({ message: "Usuario creado y correo enviado", user });
+    return res
+      .status(201)
+      .json({ message: "Usuario creado y correo enviado", user });
   } catch (error) {
     next(error);
   }
@@ -139,7 +167,7 @@ exports.updateProfile = async (req, res, next) => {
 
     await user.save();
 
-    res.json({
+    return res.json({
       message: "Perfil actualizado correctamente",
       user: {
         id: user.id,
