@@ -79,17 +79,19 @@ exports.getOrderHistory = async (req, res, next) => {
   }
 };
 
-// 💡 FUNCIÓN CLAVE: Obtener datos del perfil autenticado
+/**
+ * Obtener datos del perfil del usuario autenticado (incluye nuevos campos: apellidos, teléfono).
+ */
 exports.getProfileData = async (req, res, next) => {
   try {
     const userId = req.user.id;
 
     const user = await User.findByPk(userId, {
+      // 🆕 Ahora recupera todos los campos definidos en el modelo, excluyendo la contraseña
       attributes: { exclude: ["password"] },
     });
 
     if (!user) {
-      // 404 JSON (si el usuario del token fue eliminado)
       return res.status(404).json({ message: "Usuario no encontrado" });
     }
 
@@ -97,7 +99,9 @@ exports.getProfileData = async (req, res, next) => {
     return res.json({
       id: user.id,
       username: user.username,
+      lastName: user.lastName, // 🆕 Devuelve el apellido
       email: user.email,
+      phone: user.phone, // 🆕 Devuelve el teléfono
       role: user.role,
     });
   } catch (error) {
@@ -105,7 +109,9 @@ exports.getProfileData = async (req, res, next) => {
   }
 };
 
-// Registro de usuario desde panel (si se mantiene esta ruta aparte)
+/**
+ * Registro de usuario desde panel (mantiene la lógica existente).
+ */
 exports.registerUser = async (req, res, next) => {
   try {
     const { email, name, password } = req.body;
@@ -137,17 +143,21 @@ exports.registerUser = async (req, res, next) => {
   }
 };
 
-// Actualización del perfil del usuario autenticado
+/**
+ * Actualización del perfil del usuario autenticado (recibe y guarda apellidos y teléfono).
+ */
 exports.updateProfile = async (req, res, next) => {
   try {
     const userId = req.user.id;
-    const { username, email, password } = req.body;
+    // 🆕 Capturamos los nuevos campos del cuerpo
+    const { username, email, password, lastName, phone } = req.body;
 
     const user = await User.findByPk(userId);
     if (!user) {
       return res.status(404).json({ message: "Usuario no encontrado" });
     }
 
+    // Actualización de email
     if (email && email !== user.email) {
       const existingUser = await User.findOne({ where: { email } });
       if (existingUser && existingUser.id !== user.id) {
@@ -156,9 +166,14 @@ exports.updateProfile = async (req, res, next) => {
       user.email = email;
     }
 
+    // Actualización de username
     if (username) {
       user.username = username;
     }
+
+    // 🆕 Actualización de nuevos campos: usamos el valor o null si está vacío/no existe.
+    user.lastName = lastName || null;
+    user.phone = phone || null;
 
     if (password) {
       const hashedPassword = await bcrypt.hash(password, 10);
@@ -172,7 +187,9 @@ exports.updateProfile = async (req, res, next) => {
       user: {
         id: user.id,
         username: user.username,
+        lastName: user.lastName, // Devolvemos el valor actualizado
         email: user.email,
+        phone: user.phone, // Devolvemos el valor actualizado
       },
     });
   } catch (error) {

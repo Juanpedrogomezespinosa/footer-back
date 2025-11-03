@@ -13,6 +13,11 @@ const User = sequelize.define(
       type: DataTypes.STRING(50),
       allowNull: false,
     },
+    // 🆕 Nuevo campo para Apellidos
+    lastName: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+    },
     email: {
       type: DataTypes.STRING(100),
       allowNull: false,
@@ -21,6 +26,11 @@ const User = sequelize.define(
     password: {
       type: DataTypes.STRING(255),
       allowNull: false,
+    },
+    // 🆕 Nuevo campo para Teléfono
+    phone: {
+      type: DataTypes.STRING(20),
+      allowNull: true,
     },
     role: {
       type: DataTypes.ENUM("admin", "client"),
