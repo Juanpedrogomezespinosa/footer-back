@@ -80,10 +80,15 @@ Rating.belongsTo(User, { foreignKey: "userId" });
 Product.hasMany(Rating, { foreignKey: "productId", onDelete: "CASCADE" });
 Rating.belongsTo(Product, { foreignKey: "productId" });
 
-// 3. AÑADIR NUEVA ASOCIACIÓN
 // Usuario - Direcciones (Un usuario tiene muchas direcciones)
 User.hasMany(Address, { foreignKey: "userId", onDelete: "CASCADE" });
 Address.belongsTo(User, { foreignKey: "userId" });
+
+// --- ¡NUEVA ASOCIACIÓN AÑADIDA! ---
+// Orden - Dirección (Una orden pertenece a una dirección de envío)
+Address.hasMany(Order, { foreignKey: "addressId" });
+Order.belongsTo(Address, { foreignKey: "addressId" });
+// --- FIN DE LA NUEVA ASOCIACIÓN ---
 
 module.exports = {
   sequelize,
@@ -94,5 +99,5 @@ module.exports = {
   CartItem,
   Comment,
   Rating,
-  Address, // 4. EXPORTAR EL NUEVO MODELO
+  Address,
 };

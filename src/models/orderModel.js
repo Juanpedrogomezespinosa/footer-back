@@ -1,6 +1,6 @@
 const { DataTypes } = require("sequelize");
 const sequelize = require("../config/db");
-const User = require("./userModel");
+// const User = require("./userModel"); // Ya no es necesario aquí
 
 const Order = sequelize.define(
   "Order",
@@ -14,8 +14,24 @@ const Order = sequelize.define(
       type: DataTypes.INTEGER,
       allowNull: false,
     },
+    // --- ¡NUEVO CAMPO AÑADIDO! ---
+    addressId: {
+      type: DataTypes.INTEGER,
+      allowNull: false, // Hacemos que sea obligatorio
+      references: {
+        model: "addresses", // Nombre de la tabla de direcciones
+        key: "id",
+      },
+    },
+    // --- FIN DEL NUEVO CAMPO ---
     status: {
-      type: DataTypes.ENUM("pendiente", "pagado", "enviado", "cancelado"),
+      // He ampliado los estados para el nuevo flujo
+      type: DataTypes.ENUM(
+        "pendiente", // Creada, pendiente de pago
+        "pagado", // Pagada (confirmada)
+        "enviado",
+        "cancelado"
+      ),
       defaultValue: "pendiente",
     },
     total: {
@@ -34,8 +50,9 @@ const Order = sequelize.define(
   }
 );
 
-// Relaciones
-Order.belongsTo(User, { foreignKey: "userId" });
-User.hasMany(Order, { foreignKey: "userId" });
+// --- RELACIONES ELIMINADAS ---
+// Las relaciones 'Order.belongsTo(User)' y 'User.hasMany(Order)'
+// se han eliminado de aquí porque ya están (y deben estar)
+// centralizadas en 'src/models/index.js'.
 
 module.exports = Order;
