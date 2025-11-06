@@ -21,12 +21,10 @@ exports.register = async (req, res) => {
   try {
     const { username, email, password, role } = req.body;
 
-    // Validar que todos los campos necesarios están presentes
     if (!username || !email || !password) {
       return res.status(400).json({ message: "Faltan campos obligatorios." });
     }
 
-    // Comprobar si ya existe usuario con ese email
     const existingUser = await User.findOne({ where: { email } });
     if (existingUser) {
       return res.status(409).json({
@@ -34,21 +32,21 @@ exports.register = async (req, res) => {
       });
     }
 
-    // Encriptar contraseña
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Crear usuario
     const user = await User.create({
       username,
       email,
       password: hashedPassword,
       role: role || "client",
+      // 💡 Aseguramos que los campos opcionales existan (aunque sean null)
+      lastName: null,
+      phone: null,
+      avatarUrl: null,
     });
 
-    // Generar token JWT
     const token = generateToken(user);
 
-    // Enviar correo de bienvenida (no interrumpir el registro si falla)
     try {
       await sendWelcomeEmail(email, username);
     } catch (emailError) {
@@ -56,28 +54,30 @@ exports.register = async (req, res) => {
     }
 
     // Responder con usuario creado y token
-    res.status(201).json({
+    return res.status(201).json({
+      // 💡 Usamos return
       message: "Usuario registrado correctamente",
       user: {
         id: user.id,
         username: user.username,
         email: user.email,
         role: user.role,
+        lastName: user.lastName, // 🆕 Añadido
+        phone: user.phone, // 🆕 Añadido
+        avatarUrl: user.avatarUrl, // 🆕 Añadido
       },
       token,
     });
   } catch (error) {
     console.error("Error en registro:", error);
 
-    // Control específico para errores únicos en email (duplicados)
     if (error.name === "SequelizeUniqueConstraintError") {
       return res.status(409).json({
         message: "Este correo ya está registrado.",
       });
     }
 
-    // Error genérico
-    res.status(500).json({ message: "Error al registrar usuario." });
+    return res.status(500).json({ message: "Error al registrar usuario." }); // 💡 Usamos return
   }
 };
 
@@ -86,6 +86,7 @@ exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
+    // 💡 Buscamos el usuario en la DB
     const user = await User.findOne({ where: { email } });
 
     if (!user) {
@@ -100,18 +101,23 @@ exports.login = async (req, res) => {
 
     const token = generateToken(user);
 
-    res.json({
+    // 💡 CAMBIO CLAVE: Devolver el objeto de usuario COMPLETO
+    return res.json({
+      // 💡 Usamos return
       message: "Inicio de sesión exitoso",
       user: {
         id: user.id,
         username: user.username,
         email: user.email,
         role: user.role,
+        lastName: user.lastName, // 🆕 Añadido
+        phone: user.phone, // 🆕 Añadido
+        avatarUrl: user.avatarUrl, // 🆕 Añadido (Esta era la causa del bug)
       },
       token,
     });
   } catch (error) {
     console.error("Error en login:", error);
-    res.status(500).json({ message: "Error al iniciar sesión" });
+    return res.status(500).json({ message: "Error al iniciar sesión" }); // 💡 Usamos return
   }
 };
