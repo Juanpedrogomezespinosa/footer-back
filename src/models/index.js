@@ -7,6 +7,8 @@ const OrderItem = require("./orderItemModel");
 const CartItem = require("./cartItemModel");
 const Comment = require("./commentModel");
 const Rating = require("./ratingModel");
+// 1. IMPORTAR EL NUEVO MODELO
+const Address = require("./addressModel");
 
 const models = {
   User,
@@ -16,6 +18,7 @@ const models = {
   CartItem,
   Comment,
   Rating,
+  Address, // 2. AÑADIR EL MODELO AL OBJETO
 };
 
 // Ejecutar métodos associate definidos en cada modelo (si existen)
@@ -77,6 +80,11 @@ Rating.belongsTo(User, { foreignKey: "userId" });
 Product.hasMany(Rating, { foreignKey: "productId", onDelete: "CASCADE" });
 Rating.belongsTo(Product, { foreignKey: "productId" });
 
+// 3. AÑADIR NUEVA ASOCIACIÓN
+// Usuario - Direcciones (Un usuario tiene muchas direcciones)
+User.hasMany(Address, { foreignKey: "userId", onDelete: "CASCADE" });
+Address.belongsTo(User, { foreignKey: "userId" });
+
 module.exports = {
   sequelize,
   User,
@@ -86,4 +94,5 @@ module.exports = {
   CartItem,
   Comment,
   Rating,
+  Address, // 4. EXPORTAR EL NUEVO MODELO
 };
