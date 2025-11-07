@@ -7,38 +7,40 @@ const {
   createProduct,
   updateProduct,
   deleteProduct,
-  // uploadProductImage,  // Ya no se usa porque integramos la imagen en createProduct
 } = require("../controllers/productController");
 
 const authMiddleware = require("../middlewares/authMiddleware");
 const roleMiddleware = require("../middlewares/roleMiddleware");
-const upload = require("../middlewares/uploadMiddleware");
+const upload = require("../middlewares/uploadMiddleware"); // Importamos la base de Multer
 
-// 📦 Rutas públicas
+// 📦 Rutas públicas (sin cambios)
 router.get("/", getAllProducts);
 router.get("/:id", getProductById);
 
 // 🔒 Rutas protegidas (solo admin)
-// Creación de producto con imagen incluida en el mismo request
+
+// --- ¡CAMBIO IMPORTANTE! ---
+// Ahora usamos 'upload.array("images", 10)'
+// Esto aceptará hasta 10 ficheros bajo el nombre de campo 'images'
 router.post(
   "/",
   authMiddleware,
   roleMiddleware("admin"),
-  upload.single("image"), // multer para recibir la imagen con campo 'image'
+  upload.array("images", 10), // <-- CAMBIADO DE .single("image")
   createProduct
 );
 
-router.put("/:id", authMiddleware, roleMiddleware("admin"), updateProduct);
-router.delete("/:id", authMiddleware, roleMiddleware("admin"), deleteProduct);
+// --- ¡CAMBIO IMPORTANTE! ---
+// La ruta PUT también aceptará un array de 'images'
+// (En el frontend, decidiremos si enviamos imágenes nuevas o no)
+router.put(
+  "/:id",
+  authMiddleware,
+  roleMiddleware("admin"),
+  upload.array("images", 10), // <-- CAMBIADO (antes no tenía multer aquí)
+  updateProduct
+);
 
-// Ya no hay ruta para subir imagen separada
-// Si quieres eliminar esta ruta, simplemente comenta o borra este bloque:
-// router.post(
-//   "/:id/image",
-//   authMiddleware,
-//   roleMiddleware("admin"),
-//   upload.single("image"),
-//   uploadProductImage
-// );
+router.delete("/:id", authMiddleware, roleMiddleware("admin"), deleteProduct);
 
 module.exports = router;

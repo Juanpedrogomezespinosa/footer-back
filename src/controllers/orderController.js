@@ -6,7 +6,8 @@ const {
   OrderItem,
   Product,
   CartItem,
-  Address, // Importar el modelo Address
+  Address,
+  ProductImage, // <-- ¡1. IMPORTAR PRODUCTIMAGE!
 } = require("../models");
 const { sendOrderConfirmationEmail } = require("../services/emailService");
 const { createCheckoutSession } = require("../services/paymentService");
@@ -14,16 +15,14 @@ const { frontendUrl } = require("../config/env");
 
 /**
  * Crear una orden en la base de datos y generar una sesión de pago en Stripe.
+ * (Sin cambios en esta función)
  */
 const createOrder = async (req, res, next) => {
-  // Usamos una transacción para asegurar que todo se cree o nada
   const t = await sequelize.transaction();
   try {
     const userId = req.user.id;
-    // --- 1. LEER 'addressId' DEL BODY ---
     const { items, addressId } = req.body;
 
-    // --- 2. VALIDACIONES ---
     if (!items || !Array.isArray(items) || items.length === 0) {
       await t.rollback();
       return res.status(400).json({
@@ -38,11 +37,9 @@ const createOrder = async (req, res, next) => {
       });
     }
 
-    // --- 3. VALIDACIÓN DE SEGURIDAD ---
-    // (Verificar que la dirección pertenece al usuario)
     const address = await Address.findOne({
       where: { id: addressId, userId: userId },
-      transaction: t, // Aunque es una lectura, la incluimos en la transacción
+      transaction: t,
     });
 
     if (!address) {
@@ -52,12 +49,11 @@ const createOrder = async (req, res, next) => {
       });
     }
 
-    // --- 4. CREAR LA ORDEN (CON addressId) ---
     const order = await Order.create(
       {
         userId,
-        addressId, // <-- ¡Guardamos la dirección!
-        status: "pendiente", // Sigue pendiente hasta que Stripe confirme
+        addressId,
+        status: "pendiente",
       },
       { transaction: t }
     );
@@ -82,11 +78,9 @@ const createOrder = async (req, res, next) => {
       };
     });
 
-    // --- 5. ACTUALIZAR EL TOTAL EN LA ORDEN ---
     order.total = total;
     await order.save({ transaction: t });
 
-    // Guardar los items asociados a la orden
     for (const item of items) {
       await OrderItem.create(
         {
@@ -99,7 +93,6 @@ const createOrder = async (req, res, next) => {
       );
     }
 
-    // Vaciamos el carrito
     await CartItem.destroy({ where: { userId: userId }, transaction: t });
 
     const successUrl = `${frontendUrl}/confirmation/${order.id}`;
@@ -111,7 +104,6 @@ const createOrder = async (req, res, next) => {
       cancelUrl
     );
 
-    // Si todo va bien, confirmamos la transacción
     await t.commit();
 
     res.status(201).json({
@@ -120,7 +112,6 @@ const createOrder = async (req, res, next) => {
       checkoutUrl: session.url,
     });
   } catch (error) {
-    // Si algo falla, revertimos todo
     await t.rollback();
     console.error("Error en createOrder:", error);
     next(error);
@@ -129,6 +120,7 @@ const createOrder = async (req, res, next) => {
 
 /**
  * Obtener historial de órdenes del usuario autenticado.
+ * --- ¡MODIFICADO! ---
  */
 const getOrderHistory = async (req, res, next) => {
   try {
@@ -136,12 +128,45 @@ const getOrderHistory = async (req, res, next) => {
     const orders = await Order.findAll({
       where: { userId },
       include: [
-        { model: OrderItem, include: [Product] },
-        { model: Address }, // <-- ¡AÑADIDO! Incluir la dirección de envío
+        {
+          model: OrderItem,
+          include: [
+            {
+              model: Product,
+              // --- 2. INCLUIR IMÁGENES DEL PRODUCTO ---
+              include: [{ model: ProductImage, as: "images" }],
+            },
+          ],
+        },
+        { model: Address },
       ],
       order: [["createdAt", "DESC"]],
     });
-    res.json({ orders });
+
+    // --- 3. MAPEAR LA RESPUESTA PARA AÑADIR LA IMAGEN PRINCIPAL ---
+    // (Esto es necesario porque el frontend espera 'Product.image' y no 'Product.images')
+    const plainOrders = orders.map((order) => {
+      const orderJson = order.toJSON();
+      orderJson.OrderItems = orderJson.OrderItems.map((item) => {
+        if (
+          item.Product &&
+          item.Product.images &&
+          item.Product.images.length > 0
+        ) {
+          // Ordenamos por 'displayOrder' y cogemos la primera
+          item.Product.images.sort((a, b) => a.displayOrder - b.displayOrder);
+          // Creamos el campo 'image' que el frontend espera
+          item.Product.image = item.Product.images[0].imageUrl;
+        } else {
+          item.Product.image = null; // O un placeholder si lo prefieres
+        }
+        // Opcional: delete item.Product.images; // Limpiamos el array
+        return item;
+      });
+      return orderJson;
+    });
+
+    res.json({ orders: plainOrders }); // <-- 4. Devolvemos los pedidos mapeados
   } catch (error) {
     console.error("Error en getOrderHistory:", error);
     next(error);
@@ -150,7 +175,7 @@ const getOrderHistory = async (req, res, next) => {
 
 /**
  * Obtiene una orden específica por ID (para la página de confirmación).
- * ¡Lógica mejorada!
+ * --- ¡MODIFICADO! ---
  */
 const getOrderById = async (req, res, next) => {
   try {
@@ -160,9 +185,18 @@ const getOrderById = async (req, res, next) => {
     const order = await Order.findOne({
       where: { id: orderId, userId: userId },
       include: [
-        { model: OrderItem, include: [Product] },
+        {
+          model: OrderItem,
+          include: [
+            {
+              model: Product,
+              // --- 5. INCLUIR IMÁGENES DEL PRODUCTO ---
+              include: [{ model: ProductImage, as: "images" }],
+            },
+          ],
+        },
         User,
-        { model: Address }, // <-- ¡AÑADIDO! Incluir la dirección de envío
+        { model: Address },
       ],
     });
 
@@ -170,38 +204,50 @@ const getOrderById = async (req, res, next) => {
       return res.status(404).json({ message: "Pedido no encontrado" });
     }
 
-    // --- ¡LÓGICA MEJORADA PARA EMAIL! ---
-    // Solo enviamos el email y actualizamos el estado
-    // la PRIMERA VEZ que el usuario visita esta página (cuando está 'pendiente')
-    if (order.status === "pendiente") {
-      // 1. Actualizar estado a "pagado"
-      order.status = "pagado";
-      await order.save();
+    // --- 6. MAPEAR LA RESPUESTA (igual que en getOrderHistory) ---
+    const orderJson = order.toJSON();
+    orderJson.OrderItems = orderJson.OrderItems.map((item) => {
+      if (
+        item.Product &&
+        item.Product.images &&
+        item.Product.images.length > 0
+      ) {
+        item.Product.images.sort((a, b) => a.displayOrder - b.displayOrder);
+        item.Product.image = item.Product.images[0].imageUrl;
+      } else {
+        item.Product.image = null;
+      }
+      return item;
+    });
 
-      // 2. Enviar email de confirmación
+    // --- Lógica de Email (ahora usa orderJson) ---
+    if (order.status === "pendiente") {
+      // Usamos el objeto Sequelize original para 'status'
+      order.status = "pagado"; // Actualizamos el objeto Sequelize
+      await order.save(); // Guardamos en la BBDD
+
       try {
-        const itemsForEmail = order.OrderItems.map((item) => ({
+        // Usamos orderJson para los detalles del email
+        const itemsForEmail = orderJson.OrderItems.map((item) => ({
           productName: item.Product.name,
           quantity: item.quantity,
           price: item.price,
         }));
 
-        console.log("📧 (Confirmación) Enviando email a", order.User.email);
+        console.log("📧 (Confirmación) Enviando email a", orderJson.User.email);
         await sendOrderConfirmationEmail(
-          order.User.email,
-          order.User.username,
+          orderJson.User.email,
+          orderJson.User.username,
           itemsForEmail,
-          order.total
+          orderJson.total
         );
         console.log("✅ (Confirmación) Email enviado correctamente");
       } catch (emailError) {
         console.error("❌ Error enviando email de confirmación:", emailError);
-        // No detenemos la respuesta al usuario si el email falla
       }
     }
-    // --- FIN DE LA LÓGICA MEJORADA ---
 
-    res.json(order);
+    res.json(orderJson); // <-- 7. Devolvemos el pedido mapeado
   } catch (error) {
     console.error("Error en getOrderById:", error);
     next(error);

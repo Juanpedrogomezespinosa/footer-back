@@ -1,8 +1,17 @@
-const { CartItem, Product, User, Order, OrderItem } = require("../models");
+// --- 1. Importar ProductImage ---
+const {
+  CartItem,
+  Product,
+  User,
+  Order,
+  OrderItem,
+  ProductImage,
+} = require("../models");
 const { sendOrderConfirmationEmail } = require("../services/emailService");
 
 /**
  * Obtiene los productos del carrito del usuario actual
+ * --- ¡MODIFICADO! ---
  */
 const getCart = async (req, res, next) => {
   try {
@@ -10,10 +19,41 @@ const getCart = async (req, res, next) => {
 
     const cart = await CartItem.findAll({
       where: { userId },
-      include: [Product],
+      // --- 2. Incluir el Producto Y su galería de imágenes ---
+      include: [
+        {
+          model: Product,
+          include: [
+            {
+              model: ProductImage,
+              as: "images",
+              attributes: ["id", "imageUrl", "displayOrder"],
+              order: [["displayOrder", "ASC"]],
+            },
+          ],
+        },
+      ],
     });
 
-    res.json(cart);
+    // --- 3. Mapear la respuesta para añadir la imagen principal ---
+    // (Igual que hicimos en orderController)
+    const plainCart = cart.map((item) => {
+      const itemJson = item.toJSON();
+      if (
+        itemJson.Product &&
+        itemJson.Product.images &&
+        itemJson.Product.images.length > 0
+      ) {
+        // Creamos el campo 'image' que el frontend espera
+        itemJson.Product.image = itemJson.Product.images[0].imageUrl;
+      } else {
+        itemJson.Product.image = null; // O un placeholder
+      }
+      // Opcional: delete itemJson.Product.images;
+      return itemJson;
+    });
+
+    res.json(plainCart); // <-- 4. Devolver el carrito mapeado
   } catch (error) {
     next(error);
   }
@@ -21,6 +61,7 @@ const getCart = async (req, res, next) => {
 
 /**
  * Añade un producto al carrito del usuario actual
+ * (Sin cambios)
  */
 const addToCart = async (req, res, next) => {
   try {
@@ -51,11 +92,12 @@ const addToCart = async (req, res, next) => {
 
 /**
  * Actualiza la cantidad de un producto en el carrito
+ * (Sin cambios)
  */
 const updateCartItem = async (req, res, next) => {
   try {
     const userId = req.user.id;
-    const itemId = parseInt(req.params.itemId, 10); // Asegurar que es un número
+    const itemId = parseInt(req.params.itemId, 10);
     const { quantity } = req.body;
 
     if (!quantity || quantity <= 0) {
@@ -64,14 +106,11 @@ const updateCartItem = async (req, res, next) => {
         .json({ message: "La cantidad debe ser mayor que cero" });
     }
 
-    console.log("🔍 Actualizando carrito:", { userId, itemId, quantity });
-
     const cartItem = await CartItem.findOne({
       where: { id: itemId, userId },
     });
 
     if (!cartItem) {
-      console.warn("❌ Producto no encontrado en el carrito para este usuario");
       return res
         .status(404)
         .json({ message: "Producto no encontrado en el carrito" });
@@ -88,6 +127,7 @@ const updateCartItem = async (req, res, next) => {
 
 /**
  * Elimina un producto del carrito del usuario
+ * (Sin cambios)
  */
 const removeCartItem = async (req, res, next) => {
   try {
@@ -104,9 +144,9 @@ const removeCartItem = async (req, res, next) => {
 
 /**
  * Procesa la compra del carrito del usuario:
- *  - Crea una orden
- *  - Mueve los ítems del carrito a la orden
- *  - Envía un email de confirmación
+ * (Esta función 'checkout' está obsoleta,
+ * la real es 'createOrder' en orderController,
+ * pero la dejamos por si la usas en otro sitio)
  */
 const checkout = async (req, res, next) => {
   try {
@@ -129,6 +169,10 @@ const checkout = async (req, res, next) => {
       userId,
       total,
       status: "pendiente",
+      // ¡OJO! Esta función 'checkout' no pide 'addressId',
+      // por lo que fallará. La función correcta es 'createOrder'
+      // en 'orderController.js'
+      addressId: 1, // <--- ESTO ES UN VALOR FIJO, ¡HAY QUE QUITAR ESTA FUNCIÓN!
     });
 
     for (const item of cartItems) {

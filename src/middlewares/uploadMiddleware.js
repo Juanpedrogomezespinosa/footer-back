@@ -2,7 +2,7 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 
-// Carpeta uploads dentro de src (misma que en app.js)
+// Carpeta uploads dentro de src
 const uploadsPath = path.join(__dirname, "..", "uploads");
 
 if (!fs.existsSync(uploadsPath)) {
@@ -36,9 +36,12 @@ const upload = multer({
     if (mimetype && extname) {
       return cb(null, true);
     }
-    // 🆕 Pequeña mejora: Pasar el error como un objeto Error
     cb(new Error("Solo se permiten imágenes (jpeg, jpg, png, gif)"));
   },
 });
 
+// --- ¡CAMBIO IMPORTANTE! ---
+// Exportamos 'upload' directamente, ya que las rutas
+// decidirán si usan .single(), .array(), etc.
+// Ya no exportamos upload.single('image') por defecto.
 module.exports = upload;

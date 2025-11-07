@@ -39,29 +39,22 @@ const Product = sequelize.define(
       type: DataTypes.STRING(50),
       allowNull: true,
     },
-
-    // --- MEJORA DE VALIDACIÓN ---
     category: {
       type: DataTypes.ENUM("zapatillas", "ropa", "complementos"),
       allowNull: false,
       validate: {
-        // No permite un valor nulo
         notNull: {
           msg: "La categoría no puede ser nula.",
         },
-        // No permite un string vacío
         notEmpty: {
           msg: "La categoría no puede estar vacía.",
         },
-        // Se asegura de que el valor esté en la lista del ENUM
         isIn: {
           args: [["zapatillas", "ropa", "complementos"]],
           msg: "Categoría inválida. Debe ser 'zapatillas', 'ropa' o 'complementos'.",
         },
       },
     },
-    // --- FIN MEJORA ---
-
     sub_category: {
       type: DataTypes.STRING(50),
       allowNull: true,
@@ -82,10 +75,15 @@ const Product = sequelize.define(
       type: DataTypes.BOOLEAN,
       defaultValue: false,
     },
+    // --- ¡CAMBIO IMPORTANTE! ---
+    // La columna 'image' se elimina de este modelo.
+    // La gestionaremos a través de la tabla 'product_images'.
+    /*
     image: {
       type: DataTypes.STRING(255),
       allowNull: true,
     },
+    */
     created_at: {
       type: DataTypes.DATE,
     },
@@ -98,5 +96,17 @@ const Product = sequelize.define(
     underscored: true,
   }
 );
+
+/**
+ * --- ¡NUEVO! Asociación ---
+ * Aquí definimos la relación "Uno a Muchos" a nivel de modelo.
+ * Le decimos a Sequelize que 'Product' puede tener muchas 'ProductImages'.
+ */
+Product.associate = (models) => {
+  Product.hasMany(models.ProductImage, {
+    foreignKey: "productId",
+    as: "images", // Este 'as' (alias) es CLAVE. Lo usaremos en el controlador.
+  });
+};
 
 module.exports = Product;

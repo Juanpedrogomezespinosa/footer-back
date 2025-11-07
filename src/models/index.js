@@ -7,8 +7,9 @@ const OrderItem = require("./orderItemModel");
 const CartItem = require("./cartItemModel");
 const Comment = require("./commentModel");
 const Rating = require("./ratingModel");
-// 1. IMPORTAR EL NUEVO MODELO
 const Address = require("./addressModel");
+// --- 1. IMPORTAR EL NUEVO MODELO DE IMAGEN ---
+const ProductImage = require("./productImageModel");
 
 const models = {
   User,
@@ -18,10 +19,12 @@ const models = {
   CartItem,
   Comment,
   Rating,
-  Address, // 2. AÑADIR EL MODELO AL OBJETO
+  Address,
+  ProductImage, // --- 2. AÑADIR EL MODELO AL OBJETO ---
 };
 
 // Ejecutar métodos associate definidos en cada modelo (si existen)
+// ¡Esta sección ahora ejecutará el Product.associate que definimos!
 Object.values(models).forEach((model) => {
   if (typeof model.associate === "function") {
     model.associate(models);
@@ -32,19 +35,16 @@ Object.values(models).forEach((model) => {
  * Asociaciones explícitas
  */
 
-// Usuario - Orden
+// ... (todas tus asociaciones existentes: User-Order, Order-Item, etc.)
 User.hasMany(Order, { foreignKey: "userId", onDelete: "CASCADE" });
 Order.belongsTo(User, { foreignKey: "userId" });
 
-// Orden - Items de Orden
 Order.hasMany(OrderItem, { foreignKey: "orderId", onDelete: "CASCADE" });
 OrderItem.belongsTo(Order, { foreignKey: "orderId" });
 
-// Producto - Items de Orden
 Product.hasMany(OrderItem, { foreignKey: "productId" });
 OrderItem.belongsTo(Product, { foreignKey: "productId" });
 
-// Relaciones Many-to-Many entre Orden y Producto mediante OrderItem
 Order.belongsToMany(Product, {
   through: OrderItem,
   foreignKey: "orderId",
@@ -56,39 +56,36 @@ Product.belongsToMany(Order, {
   otherKey: "orderId",
 });
 
-// Usuario - Items del carrito
 User.hasMany(CartItem, { foreignKey: "userId", onDelete: "CASCADE" });
 CartItem.belongsTo(User, { foreignKey: "userId" });
 
-// Producto - Items del carrito
 Product.hasMany(CartItem, { foreignKey: "productId" });
 CartItem.belongsTo(Product, { foreignKey: "productId" });
 
-// Usuario - Comentarios
 User.hasMany(Comment, { foreignKey: "userId", onDelete: "CASCADE" });
 Comment.belongsTo(User, { foreignKey: "userId" });
 
-// Producto - Comentarios
 Product.hasMany(Comment, { foreignKey: "productId", onDelete: "CASCADE" });
 Comment.belongsTo(Product, { foreignKey: "productId" });
 
-// Usuario - Valoraciones
 User.hasMany(Rating, { foreignKey: "userId", onDelete: "CASCADE" });
 Rating.belongsTo(User, { foreignKey: "userId" });
 
-// Producto - Valoraciones
 Product.hasMany(Rating, { foreignKey: "productId", onDelete: "CASCADE" });
 Rating.belongsTo(Product, { foreignKey: "productId" });
 
-// Usuario - Direcciones (Un usuario tiene muchas direcciones)
 User.hasMany(Address, { foreignKey: "userId", onDelete: "CASCADE" });
 Address.belongsTo(User, { foreignKey: "userId" });
 
-// --- ¡NUEVA ASOCIACIÓN AÑADIDA! ---
-// Orden - Dirección (Una orden pertenece a una dirección de envío)
 Address.hasMany(Order, { foreignKey: "addressId" });
 Order.belongsTo(Address, { foreignKey: "addressId" });
-// --- FIN DE LA NUEVA ASOCIACIÓN ---
+// ... (fin de las asociaciones existentes)
+
+// --- 3. AÑADIR LA ASOCIACIÓN INVERSA (Buena práctica) ---
+// ProductImage pertenece a un Producto
+ProductImage.belongsTo(Product, { foreignKey: "productId" });
+// (La asociación Product.hasMany(ProductImage) se define en productModel.js
+// y se ejecuta con el bucle 'Object.values' de arriba)
 
 module.exports = {
   sequelize,
@@ -100,4 +97,5 @@ module.exports = {
   Comment,
   Rating,
   Address,
+  ProductImage,
 };
