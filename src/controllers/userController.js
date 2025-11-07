@@ -1,5 +1,5 @@
 const bcrypt = require("bcrypt");
-const fs = require("fs");
+const fs = require("fs"); // <-- ¡LÍNEA CORREGIDA!
 const path = require("path");
 const { User, Order, OrderItem, Product } = require("../models");
 const sendEmail = require("../utils/email");
@@ -36,7 +36,8 @@ exports.deleteUser = async (req, res, next) => {
     const userIdToDelete = parseInt(req.params.id, 10);
     const requester = req.user;
 
-    if (requester.role !== "admin" && requester.userId !== userIdToDelete) {
+    // Corrección: req.user.id viene de authMiddleware
+    if (requester.role !== "admin" && requester.id !== userIdToDelete) {
       return res.status(403).json({
         message: "No tiene permisos para eliminar este usuario",
       });
@@ -103,7 +104,7 @@ exports.getProfileData = async (req, res, next) => {
       lastName: user.lastName,
       email: user.email,
       phone: user.phone,
-      avatarUrl: user.avatarUrl, // 🆕 Devuelve el avatar
+      avatarUrl: user.avatarUrl,
       role: user.role,
     });
   } catch (error) {
@@ -146,12 +147,14 @@ exports.registerUser = async (req, res, next) => {
 };
 
 /**
- * Actualización de datos textuales del perfil (sin incluir subida de avatar).
+ * Actualización de datos textuales del perfil (SIN incluir contraseña).
+ * --- MODIFICADO PARA SEGURIDAD ---
  */
 exports.updateProfile = async (req, res, next) => {
   try {
     const userId = req.user.id;
-    const { username, email, password, lastName, phone } = req.body;
+    // --- 'password' eliminado de la desestructuración ---
+    const { username, email, lastName, phone } = req.body;
 
     const user = await User.findByPk(userId);
     if (!user) {
@@ -173,10 +176,8 @@ exports.updateProfile = async (req, res, next) => {
     user.lastName = lastName || null;
     user.phone = phone || null;
 
-    if (password) {
-      const hashedPassword = await bcrypt.hash(password, 10);
-      user.password = hashedPassword;
-    }
+    // --- LÓGICA DE CONTRASEÑA ELIMINADA DE AQUÍ ---
+    // if (password) { ... } ¡ELIMINADO!
 
     await user.save();
 
@@ -188,7 +189,7 @@ exports.updateProfile = async (req, res, next) => {
         lastName: user.lastName,
         email: user.email,
         phone: user.phone,
-        avatarUrl: user.avatarUrl, // 🆕 Aseguramos devolver la URL del avatar
+        avatarUrl: user.avatarUrl,
       },
     });
   } catch (error) {
@@ -208,9 +209,7 @@ exports.updateAvatar = async (req, res, next) => {
       return res.status(404).json({ message: "Usuario no encontrado." });
     }
 
-    // Multer guarda el archivo en req.file
     if (!req.file) {
-      // Manejar error si el archivo no es válido (del fileFilter de Multer)
       if (req.fileValidationError) {
         return res.status(400).json({ message: req.fileValidationError });
       }
@@ -219,14 +218,10 @@ exports.updateAvatar = async (req, res, next) => {
         .json({ message: "No se proporcionó ningún archivo de imagen." });
     }
 
-    // 1. Construir la ruta pública (la que usará el frontend)
-    // (Ej: /uploads/nombre-archivo.png)
     const newAvatarPath = `/uploads/${req.file.filename}`;
 
-    // 2. Si el usuario ya tenía un avatar, borramos el archivo antiguo
     if (user.avatarUrl) {
       try {
-        // Construimos la ruta completa al archivo antiguo
         const oldPath = path.join(__dirname, "..", user.avatarUrl);
         if (fs.existsSync(oldPath)) {
           fs.unlinkSync(oldPath);
@@ -236,7 +231,6 @@ exports.updateAvatar = async (req, res, next) => {
       }
     }
 
-    // 3. Actualizar la base de datos con la nueva ruta
     user.avatarUrl = newAvatarPath;
     await user.save();
 
@@ -246,6 +240,58 @@ exports.updateAvatar = async (req, res, next) => {
     });
   } catch (error) {
     console.error("Error al actualizar la imagen de perfil:", error);
+    next(error);
+  }
+};
+
+//
+// --- ¡NUEVA FUNCIÓN AÑADIDA! ---
+//
+/**
+ * Actualiza la contraseña del usuario de forma segura.
+ */
+exports.updatePassword = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const { currentPassword, newPassword } = req.body;
+
+    // 1. Validar campos
+    if (!currentPassword || !newPassword) {
+      return res
+        .status(400)
+        .json({ message: "Todos los campos son obligatorios" });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        message: "La nueva contraseña debe tener al menos 6 caracteres",
+      });
+    }
+
+    // 2. Obtener usuario
+    const user = await User.findByPk(userId);
+    if (!user) {
+      return res.status(404).json({ message: "Usuario no encontrado" });
+    }
+
+    // 3. Verificar contraseña actual
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      return res
+        .status(403)
+        .json({ message: "La contraseña actual es incorrecta" });
+    }
+
+    // 4. Hashear y guardar la nueva contraseña
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+    user.password = hashedNewPassword;
+    await user.save();
+
+    return res
+      .status(200)
+      .json({ message: "Contraseña actualizada correctamente" });
+  } catch (error) {
+    console.error("Error al cambiar la contraseña:", error);
     next(error);
   }
 };

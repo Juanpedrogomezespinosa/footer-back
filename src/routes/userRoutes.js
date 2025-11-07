@@ -11,7 +11,8 @@ const {
   getOrderHistory,
   updateProfile,
   getProfileData,
-  updateAvatar, // 🆕 Importar la nueva función del controlador
+  updateAvatar,
+  updatePassword, // <-- 1. IMPORTAR LA NUEVA FUNCIÓN
 } = require("../controllers/userController");
 
 const authMiddleware = require("../middlewares/authMiddleware");
@@ -25,10 +26,12 @@ router.get("/profile", authMiddleware, getProfileData);
 // Actualización de datos TEXTUALES del perfil
 router.put("/profile", authMiddleware, updateProfile);
 
+// --- ¡NUEVA RUTA AÑADIDA! ---
+// Actualización de CONTRASEÑA
+router.put("/profile/password", authMiddleware, updatePassword);
+// --- FIN DE LA NUEVA RUTA ---
+
 // 🆕 RUTA PARA SUBIR/ACTUALIZAR IMAGEN DE PERFIL
-// 1. authMiddleware: Verifica el token.
-// 2. upload.single('avatar'): Procesa el archivo (debe llamarse 'avatar' en el form-data).
-// 3. updateAvatar: Guarda la ruta en la DB.
 router.post(
   "/profile/avatar",
   authMiddleware,
