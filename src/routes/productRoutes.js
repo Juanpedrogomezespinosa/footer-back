@@ -7,37 +7,37 @@ const {
   createProduct,
   updateProduct,
   deleteProduct,
+  getRelatedProducts, // <-- 1. IMPORTAR LA NUEVA FUNCIÓN
 } = require("../controllers/productController");
 
 const authMiddleware = require("../middlewares/authMiddleware");
 const roleMiddleware = require("../middlewares/roleMiddleware");
 const upload = require("../middlewares/uploadMiddleware"); // Importamos la base de Multer
 
-// 📦 Rutas públicas (sin cambios)
+// 📦 Rutas públicas
 router.get("/", getAllProducts);
-router.get("/:id", getProductById);
+
+// --- ¡NUEVA RUTA AÑADIDA! ---
+// Debe ir ANTES de '/:id' para que 'related' no sea tratado como un id
+router.get("/:id/related", getRelatedProducts);
+// ----------------------------
+
+router.get("/:id", getProductById); // Esta ruta ahora va después
 
 // 🔒 Rutas protegidas (solo admin)
-
-// --- ¡CAMBIO IMPORTANTE! ---
-// Ahora usamos 'upload.array("images", 10)'
-// Esto aceptará hasta 10 ficheros bajo el nombre de campo 'images'
 router.post(
   "/",
   authMiddleware,
   roleMiddleware("admin"),
-  upload.array("images", 10), // <-- CAMBIADO DE .single("image")
+  upload.array("images", 10),
   createProduct
 );
 
-// --- ¡CAMBIO IMPORTANTE! ---
-// La ruta PUT también aceptará un array de 'images'
-// (En el frontend, decidiremos si enviamos imágenes nuevas o no)
 router.put(
   "/:id",
   authMiddleware,
   roleMiddleware("admin"),
-  upload.array("images", 10), // <-- CAMBIADO (antes no tenía multer aquí)
+  upload.array("images", 10),
   updateProduct
 );
 

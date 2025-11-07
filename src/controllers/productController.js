@@ -92,27 +92,19 @@ exports.getAllProducts = async (request, response, next) => {
       order: isRatingSort ? undefined : [[sortBy, order]],
       limit: isRatingSort ? undefined : limit,
       offset: isRatingSort ? undefined : offset,
-      // --- ¡ESTA ES LA CORRECCIÓN! ---
-      // Esto fuerza a Sequelize a contar solo los productos únicos,
-      // ignorando las filas duplicadas por el JOIN de imágenes.
       distinct: true,
-      // --------------------------------
     };
 
     let products;
     let totalItems;
 
     if (isRatingSort) {
-      // Esta lógica de 'isRatingSort' sigue siendo un poco compleja,
-      // pero el 'distinct: true' debería ayudar a que 'products.length' sea correcto
-      // si no aplicamos limit/offset aquí.
       products = await Product.findAll(queryOptions);
-      totalItems = products.length; // Ahora 'products' debería tener 20 items únicos
+      totalItems = products.length;
     } else {
-      // Esta es la ruta que estás usando (ordenar por precio)
       const { count, rows } = await Product.findAndCountAll(queryOptions);
       products = rows;
-      totalItems = count; // 'count' ahora debería ser 20 gracias a 'distinct: true'
+      totalItems = count;
     }
 
     const productIds = products.map((product) => product.id);
@@ -166,7 +158,6 @@ exports.getAllProducts = async (request, response, next) => {
       );
 
     if (isRatingSort) {
-      // Si ordenamos por rating, el 'totalItems' real es DESPUÉS de filtrar
       totalItems = productsResponse.length;
     }
 
@@ -180,7 +171,6 @@ exports.getAllProducts = async (request, response, next) => {
     }
 
     if (isRatingSort) {
-      // Y la paginación manual se aplica al final
       productsResponse = productsResponse.slice(offset, offset + limit);
     }
 
@@ -191,7 +181,7 @@ exports.getAllProducts = async (request, response, next) => {
       totalPages,
       totalItems,
       nextPage: page < totalPages ? page + 1 : null,
-      prevPage: page > 1 ? page - 1 : null, // (Esto ya estaba corregido)
+      prevPage: page > 1 ? page - 1 : null,
       products: productsResponse,
     });
   } catch (error) {
@@ -210,7 +200,6 @@ exports.getProductById = async (request, response, next) => {
           model: ProductImage,
           as: "images",
           attributes: ["id", "imageUrl", "displayOrder"],
-          // --- ¡MEJORA! Asegurarnos de que las imágenes vienen ordenadas ---
           order: [["displayOrder", "ASC"]],
         },
       ],
@@ -415,6 +404,67 @@ exports.deleteProduct = async (request, response, next) => {
     response.json({ message: "Producto y todas sus imágenes eliminados" });
   } catch (error) {
     console.error("Error en deleteProduct:", error);
+    next(error);
+  }
+};
+
+//
+// --- ¡NUEVA FUNCIÓN AÑADIDA! ---
+//
+/**
+ * Obtiene productos relacionados (para "Completa tu look")
+ */
+exports.getRelatedProducts = async (request, response, next) => {
+  try {
+    const { id } = request.params; // ID del producto actual
+
+    // 1. Encontrar la categoría del producto actual
+    const currentProduct = await Product.findByPk(id, {
+      attributes: ["category"],
+    });
+
+    if (!currentProduct) {
+      return response.status(404).json({ message: "Producto no encontrado" });
+    }
+
+    // 2. Buscar 4 productos de la misma categoría, excluyendo el actual
+    const relatedProducts = await Product.findAll({
+      where: {
+        category: currentProduct.category,
+        id: { [Op.ne]: id }, // [Op.ne] significa "Not Equal" (no es igual)
+      },
+      limit: 4, // Como en el diseño
+      // 3. Incluir sus imágenes (¡solo la principal!)
+      include: [
+        {
+          model: ProductImage,
+          as: "images",
+          attributes: ["imageUrl", "displayOrder"],
+          order: [["displayOrder", "ASC"]],
+          limit: 1, // Solo queremos la primera imagen para la tarjeta
+        },
+      ],
+    });
+
+    // 4. Mapear la respuesta para que coincida con 'product-card'
+    const productsResponse = relatedProducts.map((product) => {
+      const plainProduct = product.toJSON();
+      let mainImage = null;
+      if (plainProduct.images && plainProduct.images.length > 0) {
+        mainImage = plainProduct.images[0].imageUrl;
+      }
+      // Devolvemos el producto plano con 'image' (singular)
+      // para que 'app-product-card' funcione directamente.
+      return {
+        ...plainProduct,
+        image: mainImage, // El campo 'image' que espera el product-card
+        images: undefined, // No necesitamos el array en la tarjeta
+      };
+    });
+
+    response.json(productsResponse);
+  } catch (error) {
+    console.error("Error en getRelatedProducts:", error);
     next(error);
   }
 };
