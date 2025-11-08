@@ -1,3 +1,4 @@
+// src/routes/adminRoutes.js
 const express = require("express");
 const router = express.Router();
 
@@ -23,7 +24,8 @@ router.get("/stats/sales-graph", adminController.getSalesGraphData);
 
 // --- Rutas de Gestión de Pedidos ---
 router.get("/orders", adminController.getAllOrders);
-// (Aquí podrías añadir PUT /orders/:id para cambiar estado, etc.)
+// --- ¡NUEVA RUTA AÑADIDA! ---
+router.get("/orders/:id", adminController.getAdminOrderById);
 
 // --- Rutas de Gestión de Usuarios ---
 router.get("/users", userController.getAllUsers);

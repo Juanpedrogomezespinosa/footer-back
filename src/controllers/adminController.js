@@ -1,3 +1,4 @@
+// src/controllers/adminController.js
 const {
   User,
   Order,
@@ -246,6 +247,93 @@ exports.getAllOrders = async (req, res, next) => {
     });
   } catch (error) {
     console.error("Error en getAllOrders:", error);
+    next(error);
+  }
+};
+
+// --- ¡NUEVA FUNCIÓN AÑADIDA! ---
+/**
+ * [ADMIN] Obtiene CUALQUIER pedido por su ID.
+ * (Sin comprobar el req.user.id)
+ */
+exports.getAdminOrderById = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const order = await Order.findByPk(id, {
+      include: [
+        {
+          model: User,
+          attributes: ["id", "username", "email"],
+        },
+        {
+          model: Address, // Incluye la dirección completa
+        },
+        {
+          model: OrderItem,
+          include: [
+            {
+              model: Product,
+              attributes: ["id", "name"], // Solo id y nombre del producto
+              include: [
+                {
+                  // Incluimos la imagen principal del producto
+                  model: ProductImage,
+                  as: "images",
+                  attributes: ["imageUrl"],
+                  where: { displayOrder: 0 },
+                  required: false, // LEFT JOIN, por si un producto no tiene imagen
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    if (!order) {
+      return res.status(404).json({ message: "Pedido no encontrado" });
+    }
+
+    // --- Mapeo para que coincida con la interfaz del Frontend ---
+    // (La interfaz 'FullAdminOrder' espera 'Product.image' como un string,
+    // no 'Product.images' como un array)
+
+    const orderJson = order.toJSON();
+
+    const cleanedOrderItems = orderJson.OrderItems.map((item) => {
+      let mainImage = null;
+      // Comprobamos que Product y Product.images existen
+      if (
+        item.Product &&
+        item.Product.images &&
+        item.Product.images.length > 0
+      ) {
+        mainImage = item.Product.images[0].imageUrl;
+      }
+
+      // Creamos un nuevo objeto Product limpio
+      const cleanedProduct = {
+        id: item.Product.id,
+        name: item.Product.name,
+        image: mainImage, // Esto es lo que el frontend espera
+      };
+
+      // Devolvemos el item con el Product limpio
+      return {
+        ...item,
+        Product: cleanedProduct,
+      };
+    });
+
+    // Devolvemos la orden completa con los items limpios
+    const responsePayload = {
+      ...orderJson,
+      OrderItems: cleanedOrderItems,
+    };
+
+    res.json(responsePayload);
+  } catch (error) {
+    console.error("Error en getAdminOrderById:", error);
     next(error);
   }
 };
