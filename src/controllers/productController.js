@@ -1,7 +1,6 @@
-const { Op, fn, col, sequelize } = require("sequelize");
-
-// --- Importar ProductImage ---
-const { Product, Rating, ProductImage } = require("../models");
+// src/controllers/productController.js
+const { Op, fn, col } = require("sequelize");
+const { Product, Rating, ProductImage, sequelize } = require("../models"); // Asegúrate que 'sequelize' (minúscula) está importado de models
 const fs = require("fs");
 const path = require("path");
 
@@ -181,7 +180,7 @@ exports.getAllProducts = async (request, response, next) => {
       totalPages,
       totalItems,
       nextPage: page < totalPages ? page + 1 : null,
-      prevPage: page > 1 ? page - 1 : null,
+      prevPage: page > 1 ? page + 1 : null,
       products: productsResponse,
     });
   } catch (error) {
@@ -241,7 +240,7 @@ exports.createProduct = async (request, response, next) => {
       sub_category,
       gender,
       material,
-      season,
+      season, // <-- Sigue recibiendo el string
       is_new,
     } = request.body;
 
@@ -267,7 +266,7 @@ exports.createProduct = async (request, response, next) => {
         sub_category,
         gender,
         material,
-        season,
+        season: season || null, // <-- ¡CAMBIO AQUÍ! Si 'season' es un string vacío, guárdalo como NULL
         is_new,
       },
       { transaction: t }
@@ -347,7 +346,7 @@ exports.updateProduct = async (request, response, next) => {
     product.sub_category = sub_category ?? product.sub_category;
     product.gender = gender ?? product.gender;
     product.material = material ?? product.material;
-    product.season = season ?? product.season;
+    product.season = season || product.season; // <-- ¡CAMBIO AQUÍ TAMBIÉN! Aseguramos que se maneje el 'null'
     product.is_new = is_new ?? product.is_new;
 
     await product.save({ transaction: t });
@@ -408,12 +407,6 @@ exports.deleteProduct = async (request, response, next) => {
   }
 };
 
-//
-// --- ¡NUEVA FUNCIÓN AÑADIDA! ---
-//
-/**
- * Obtiene productos relacionados (para "Completa tu look")
- */
 exports.getRelatedProducts = async (request, response, next) => {
   try {
     const { id } = request.params; // ID del producto actual
