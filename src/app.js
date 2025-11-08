@@ -31,8 +31,9 @@ const cartRoutes = require("./routes/cartRoutes");
 const orderRoutes = require("./routes/orderRoutes");
 const commentRoutes = require("./routes/commentRoutes");
 const ratingRoutes = require("./routes/ratingRoutes");
-// 1. IMPORTAR LAS NUEVAS RUTAS
 const addressRoutes = require("./routes/addressRoutes");
+// --- 1. IMPORTAR LAS NUEVAS RUTAS DE ADMIN ---
+const adminRoutes = require("./routes/adminRoutes");
 
 // 1. RUTAS API (MÁXIMA PRIORIDAD)
 app.use("/api/products", productRoutes);
@@ -42,20 +43,19 @@ app.use("/api/cart", authenticationMiddleware, cartRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/comments", commentRoutes);
 app.use("/api/ratings", ratingRoutes);
-// 2. AÑADIR LAS NUEVAS RUTAS
-// No necesita 'authenticationMiddleware' aquí porque ya está incluido DENTRO de addressRoutes.js
 app.use("/api/addresses", addressRoutes);
+// --- 2. AÑADIR LAS RUTAS DE ADMIN ---
+// (La protección de rol ya está dentro de adminRoutes.js)
+app.use("/api/admin", adminRoutes);
 
 // 2. Servir archivos estáticos (solo imágenes, después de las rutas API)
 app.use("/uploads", express.static(uploadsDirectory));
 
 // --- MANEJADOR DE RUTA NO ENCONTRADA (404 JSON) ---
-// Esto captura cualquier solicitud que NO fue manejada por las rutas /api/* o /uploads/*
 app.use((req, res, next) => {
-  // Creamos un error 404 explícito que será procesado por errorHandler.js
   const error = new Error(`Ruta de API no encontrada: ${req.originalUrl}`);
-  error.status = 404; // Establece el código de estado 404
-  next(error); // Pasa el error al manejador final
+  error.status = 404;
+  next(error);
 });
 
 // Middleware para manejo de errores (Captura 404 y 500 y devuelve JSON)
