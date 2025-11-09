@@ -229,8 +229,6 @@ exports.getAllOrders = async (req, res, next) => {
         {
           model: Address, // Incluir la dirección de envío
         },
-        // Opcional: incluir OrderItems si la "vista de detalle" los necesita
-        // { model: OrderItem, include: [Product] }
       ],
       order: [["createdAt", "DESC"]],
       limit,
@@ -239,11 +237,15 @@ exports.getAllOrders = async (req, res, next) => {
 
     const totalPages = Math.ceil(count / limit);
 
+    // --- ¡AQUÍ ESTABA EL BUG DE LA PAGINACIÓN! ---
+    // Faltaban nextPage y prevPage
     res.json({
       currentPage: page,
       totalPages,
       totalItems: count,
       orders: rows,
+      nextPage: page < totalPages ? page + 1 : null,
+      prevPage: page > 1 ? page - 1 : null,
     });
   } catch (error) {
     console.error("Error en getAllOrders:", error);
@@ -251,7 +253,6 @@ exports.getAllOrders = async (req, res, next) => {
   }
 };
 
-// --- ¡NUEVA FUNCIÓN AÑADIDA! ---
 /**
  * [ADMIN] Obtiene CUALQUIER pedido por su ID.
  * (Sin comprobar el req.user.id)
@@ -294,15 +295,10 @@ exports.getAdminOrderById = async (req, res, next) => {
       return res.status(404).json({ message: "Pedido no encontrado" });
     }
 
-    // --- Mapeo para que coincida con la interfaz del Frontend ---
-    // (La interfaz 'FullAdminOrder' espera 'Product.image' como un string,
-    // no 'Product.images' como un array)
-
     const orderJson = order.toJSON();
 
     const cleanedOrderItems = orderJson.OrderItems.map((item) => {
       let mainImage = null;
-      // Comprobamos que Product y Product.images existen
       if (
         item.Product &&
         item.Product.images &&
@@ -311,21 +307,18 @@ exports.getAdminOrderById = async (req, res, next) => {
         mainImage = item.Product.images[0].imageUrl;
       }
 
-      // Creamos un nuevo objeto Product limpio
       const cleanedProduct = {
         id: item.Product.id,
         name: item.Product.name,
-        image: mainImage, // Esto es lo que el frontend espera
+        image: mainImage,
       };
 
-      // Devolvemos el item con el Product limpio
       return {
         ...item,
         Product: cleanedProduct,
       };
     });
 
-    // Devolvemos la orden completa con los items limpios
     const responsePayload = {
       ...orderJson,
       OrderItems: cleanedOrderItems,
@@ -334,6 +327,42 @@ exports.getAdminOrderById = async (req, res, next) => {
     res.json(responsePayload);
   } catch (error) {
     console.error("Error en getAdminOrderById:", error);
+    next(error);
+  }
+};
+
+// --- ¡NUEVA FUNCIÓN AÑADIDA! ---
+/**
+ * [ADMIN] Actualiza el estado de un pedido.
+ */
+exports.updateOrderStatus = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    // Validar el estado recibido
+    const validStatuses = [
+      "pendiente",
+      "pagado",
+      "enviado",
+      "entregado",
+      "cancelado",
+    ];
+    if (!status || !validStatuses.includes(status)) {
+      return res.status(400).json({ message: "Estado no válido." });
+    }
+
+    const order = await Order.findByPk(id);
+    if (!order) {
+      return res.status(404).json({ message: "Pedido no encontrado" });
+    }
+
+    order.status = status;
+    await order.save();
+
+    res.json({ message: "Estado del pedido actualizado.", order });
+  } catch (error) {
+    console.error("Error en updateOrderStatus:", error);
     next(error);
   }
 };

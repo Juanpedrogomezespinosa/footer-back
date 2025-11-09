@@ -24,16 +24,15 @@ router.get("/stats/sales-graph", adminController.getSalesGraphData);
 
 // --- Rutas de Gestión de Pedidos ---
 router.get("/orders", adminController.getAllOrders);
-// --- ¡NUEVA RUTA AÑADIDA! ---
 router.get("/orders/:id", adminController.getAdminOrderById);
+// --- ¡NUEVA RUTA AÑADIDA! ---
+router.put("/orders/:id/status", adminController.updateOrderStatus);
 
 // --- Rutas de Gestión de Usuarios ---
 router.get("/users", userController.getAllUsers);
 router.delete("/users/:id", userController.deleteUser);
 
 // --- Rutas de Gestión de Productos ---
-// (Estas rutas ya las tenías, pero las centralizamos aquí
-// para que el frontend del admin las tenga en un solo lugar)
 router.get("/products", productController.getAllProducts);
 router.post(
   "/products",
