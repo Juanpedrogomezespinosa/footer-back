@@ -1,6 +1,12 @@
 // src/controllers/productController.js
 const { Op, fn, col } = require("sequelize");
-const { Product, Rating, ProductImage, sequelize } = require("../models");
+const {
+  Product,
+  Rating,
+  ProductImage,
+  ProductVariantStock, // <-- Asegúrate de que tu index.js lo exporta
+  sequelize,
+} = require("../models");
 const fs = require("fs");
 const path = require("path");
 
@@ -13,15 +19,16 @@ const validSortFields = [
 ];
 const validSortDirections = ["ASC", "DESC"];
 
+// --- ¡¡¡FUNCIÓN TOTALMENTE REFACTORIZADA!!! ---
 exports.getAllProducts = async (request, response, next) => {
   try {
     let {
       name,
       minPrice,
       maxPrice,
-      stock,
-      size,
-      color,
+      stock, // "true"
+      size, // "42"
+      color, // "Rojo"
       brand,
       category,
       gender,
@@ -38,6 +45,7 @@ exports.getAllProducts = async (request, response, next) => {
     page = parseInt(page, 10);
     limit = parseInt(limit, 10);
 
+    // ... (Validaciones de paginación y orden) ...
     if (isNaN(page) || page < 1)
       return response.status(400).json({ message: "Página inválida" });
     if (isNaN(limit) || limit < 1)
@@ -52,60 +60,118 @@ exports.getAllProducts = async (request, response, next) => {
         .status(400)
         .json({ message: "Dirección de ordenación inválida." });
 
-    const where = {};
-    if (name) where.name = { [Op.like]: `%${name}%` };
+    // --- LÓGICA DE FILTRADO DE PRODUCTO PADRE ---
+    // (Aquí NO debe ir 'stock' ni 'size')
+    const whereProduct = {};
+    if (name) whereProduct.name = { [Op.like]: `%${name}%` };
     if (minPrice || maxPrice) {
-      where.price = {};
-      if (minPrice) where.price[Op.gte] = Number(minPrice);
-      if (maxPrice) where.price[Op.lte] = Number(maxPrice);
+      whereProduct.price = {};
+      if (minPrice) whereProduct.price[Op.gte] = Number(minPrice);
+      if (maxPrice) whereProduct.price[Op.lte] = Number(maxPrice);
     }
-    if (stock === "true") where.stock = { [Op.gt]: 0 };
-    else if (stock === "false") where.stock = 0;
-    if (size) where.size = size;
-    if (color) where.color = color;
-    if (brand) where.brand = Array.isArray(brand) ? { [Op.in]: brand } : brand;
+    if (brand)
+      whereProduct.brand = Array.isArray(brand) ? { [Op.in]: brand } : brand;
     if (category)
-      where.category = Array.isArray(category)
+      whereProduct.category = Array.isArray(category)
         ? { [Op.in]: category }
         : category;
     if (gender)
-      where.gender = Array.isArray(gender) ? { [Op.in]: gender } : gender;
-    if (material) where.material = material;
+      whereProduct.gender = Array.isArray(gender)
+        ? { [Op.in]: gender }
+        : gender;
+    if (material) whereProduct.material = material;
     if (season)
-      where.season = Array.isArray(season) ? { [Op.in]: season } : season;
-    if (is_new === "true") where.is_new = true;
-    else if (is_new === "false") where.is_new = false;
+      whereProduct.season = Array.isArray(season)
+        ? { [Op.in]: season }
+        : season;
+    if (is_new === "true") whereProduct.is_new = true;
+    else if (is_new === "false") whereProduct.is_new = false;
+    // 'color' principal del producto (el de la primera variante)
+    if (color) whereProduct.color = color;
+
+    // --- LÓGICA DE FILTRADO DE VARIANTES ---
+    // (Aquí SÍ van 'stock' y 'size')
+    const whereVariant = {};
+    let includeVariants = false; // Flag para saber si debemos incluir el JOIN
+
+    if (stock === "true") {
+      whereVariant.stock = { [Op.gt]: 0 };
+      includeVariants = true;
+    } else if (stock === "false") {
+      whereVariant.stock = 0;
+      includeVariants = true;
+    }
+    if (size) {
+      whereVariant.size = size; // Búsqueda exacta
+      includeVariants = true;
+    }
 
     const offset = (page - 1) * limit;
     const isRatingSort = sortBy === "averageRating" || sortBy === "ratingCount";
 
+    // --- Includes dinámicos ---
+    const includes = [
+      {
+        model: ProductImage,
+        as: "images",
+        attributes: ["id", "imageUrl", "displayOrder"],
+      },
+    ];
+
+    // ¡¡¡AÑADIMOS EL JOIN DE VARIANTES SÓLO SI ES NECESARIO!!!
+    if (includeVariants) {
+      includes.push({
+        model: ProductVariantStock,
+        as: "variants",
+        attributes: [], // No necesitamos traerlas, solo usarlas para filtrar
+        where: whereVariant,
+        required: true, // INNER JOIN: Solo productos que COINCIDAN con el filtro
+      });
+    }
+
     const queryOptions = {
-      where,
-      include: [
-        {
-          model: ProductImage,
-          as: "images",
-          attributes: ["id", "imageUrl", "displayOrder"],
-        },
+      // Columnas del producto PADRE (¡SIN 'stock' NI 'size'!)
+      attributes: [
+        "id",
+        "name",
+        "description",
+        "price",
+        "brand",
+        "category",
+        "sub_category",
+        "gender",
+        "material",
+        "season",
+        "is_new",
+        "created_at",
+        "color", // El color "principal"
       ],
+      where: whereProduct,
+      include: includes, // Usamos el array de includes dinámico
       order: isRatingSort ? undefined : [[sortBy, order]],
       limit: isRatingSort ? undefined : limit,
       offset: isRatingSort ? undefined : offset,
-      distinct: true,
+      distinct: true, // Muy importante para que el COUNT funcione con el JOIN
     };
 
     let products;
     let totalItems;
 
     if (isRatingSort) {
+      // Borramos limit y offset para ordenar por rating
+      delete queryOptions.limit;
+      delete queryOptions.offset;
       products = await Product.findAll(queryOptions);
       totalItems = products.length;
     } else {
+      // Sequelize 6 maneja 'distinct: true' en findAndCountAll
       const { count, rows } = await Product.findAndCountAll(queryOptions);
       products = rows;
-      totalItems = count;
+      // 'count' con distinct y required=true puede devolver un número o un array
+      totalItems = typeof count === "number" ? count : count.length;
     }
 
+    // --- (El resto de la lógica de Ratings es igual) ---
     const productIds = products.map((product) => product.id);
     let ratings = [];
     if (productIds.length > 0) {
@@ -180,7 +246,7 @@ exports.getAllProducts = async (request, response, next) => {
       totalPages,
       totalItems,
       nextPage: page < totalPages ? page + 1 : null,
-      prevPage: page > 1 ? page - 1 : null,
+      prevPage: page > 1 ? page + 1 : null,
       products: productsResponse,
     });
   } catch (error) {
@@ -189,18 +255,39 @@ exports.getAllProducts = async (request, response, next) => {
   }
 };
 
-// --- ¡FUNCIÓN MODIFICADA! ---
+// --- ¡¡¡FUNCIÓN TOTALMENTE REFACTORIZADA!!! ---
 exports.getProductById = async (request, response, next) => {
   try {
     const { id } = request.params;
 
     const product = await Product.findByPk(id, {
+      // Columnas del producto padre
+      attributes: [
+        "id",
+        "name",
+        "description",
+        "price",
+        "brand",
+        "category",
+        "sub_category",
+        "gender",
+        "material",
+        "season",
+        "is_new",
+        "color", // Color principal
+      ],
       include: [
         {
           model: ProductImage,
           as: "images",
           attributes: ["id", "imageUrl", "displayOrder"],
           order: [["displayOrder", "ASC"]],
+        },
+        // ¡INCLUIMOS LAS VARIANTES REALES!
+        {
+          model: ProductVariantStock,
+          as: "variants",
+          attributes: ["id", "color", "size", "stock"],
         },
       ],
     });
@@ -219,28 +306,26 @@ exports.getProductById = async (request, response, next) => {
       ? parseFloat(parseFloat(average.averageRating).toFixed(2))
       : 0;
 
-    // 2. ¡NUEVO! Buscar Variantes ("hermanos")
-    const variants = await Product.findAll({
+    // 2. Buscar "Hermanos" (otros colores del mismo producto)
+    const siblings = await Product.findAll({
       where: {
-        name: product.name, // Buscar productos con el mismo nombre
-        id: { [Op.ne]: id }, // Excluir el producto actual
+        name: product.name, // Mismo nombre
+        id: { [Op.ne]: id }, // No él mismo
       },
-      attributes: ["id", "color"], // Solo necesitamos el ID y el color para los selectores
+      attributes: ["id", "color"], // Color principal del "hermano"
       include: [
         {
-          // Incluir la imagen principal de cada variante
           model: ProductImage,
           as: "images",
           attributes: ["imageUrl"],
           where: { displayOrder: 0 },
-          required: false, // Para que no falle si una variante no tiene imagen
+          required: false,
         },
       ],
     });
 
-    // 3. Limpiar la respuesta de las variantes
-    const cleanedVariants = variants.map((v) => {
-      const variantJson = v.toJSON();
+    const cleanedSiblings = siblings.map((s) => {
+      const variantJson = s.toJSON();
       return {
         id: variantJson.id,
         color: variantJson.color,
@@ -255,7 +340,7 @@ exports.getProductById = async (request, response, next) => {
     response.json({
       ...product.toJSON(),
       averageRating,
-      variants: cleanedVariants, // Añadir el array de variantes
+      siblings: cleanedSiblings, // Array de "hermanos"
     });
   } catch (error) {
     console.error("Error en getProductById:", error);
@@ -263,6 +348,7 @@ exports.getProductById = async (request, response, next) => {
   }
 };
 
+// --- ¡¡¡FUNCIÓN TOTALMENTE REFACTORIZADA!!! ---
 exports.createProduct = async (request, response, next) => {
   const t = await sequelize.transaction();
   try {
@@ -270,9 +356,6 @@ exports.createProduct = async (request, response, next) => {
       name,
       description,
       price,
-      stock,
-      size, // size ahora es "36,37,38"
-      color,
       brand,
       category,
       sub_category,
@@ -280,9 +363,11 @@ exports.createProduct = async (request, response, next) => {
       material,
       season,
       is_new,
+      variants, // <-- ¡NUEVO! Viene como string JSON
     } = request.body;
 
     const images = request.files;
+    const parsedVariants = JSON.parse(variants);
 
     if (!images || images.length === 0) {
       await t.rollback();
@@ -290,15 +375,19 @@ exports.createProduct = async (request, response, next) => {
         .status(400)
         .json({ message: "Se requiere al menos una imagen." });
     }
+    if (!parsedVariants || parsedVariants.length === 0) {
+      await t.rollback();
+      return response
+        .status(400)
+        .json({ message: "Se requiere al menos una variante." });
+    }
 
+    // 1. Creamos el Producto "Padre"
     const newProduct = await Product.create(
       {
         name,
         description,
         price,
-        stock: stock || 0,
-        size, // Guardamos el string de tallas "36,37,38"
-        color,
         brand,
         category,
         sub_category,
@@ -306,10 +395,24 @@ exports.createProduct = async (request, response, next) => {
         material,
         season: season || null,
         is_new,
+        // Guardamos el color de la PRIMERA variante como el color "principal"
+        color: parsedVariants[0].color,
       },
       { transaction: t }
     );
 
+    // 2. Preparamos las variantes
+    const variantData = parsedVariants.map((v) => ({
+      productId: newProduct.id,
+      color: v.color,
+      size: v.size,
+      stock: v.stock,
+    }));
+
+    // 3. Creamos todas las variantes
+    await ProductVariantStock.bulkCreate(variantData, { transaction: t });
+
+    // 4. Creamos las imágenes
     const imagePromises = images.map((file, index) => {
       const imageUrl = `/uploads/${file.filename}`;
       return ProductImage.create(
@@ -326,11 +429,14 @@ exports.createProduct = async (request, response, next) => {
 
     await t.commit();
 
-    const productWithImages = await Product.findByPk(newProduct.id, {
-      include: [{ model: ProductImage, as: "images" }],
+    const productWithDetails = await Product.findByPk(newProduct.id, {
+      include: [
+        { model: ProductImage, as: "images" },
+        { model: ProductVariantStock, as: "variants" },
+      ],
     });
 
-    response.status(201).json(productWithImages);
+    response.status(201).json(productWithDetails);
   } catch (error) {
     await t.rollback();
 
@@ -341,11 +447,17 @@ exports.createProduct = async (request, response, next) => {
         .json({ message: "Error de validación", errors: messages });
     }
 
+    // Este error ahora vendrá del fileFilter
+    if (error.message.includes("Solo se permiten imágenes")) {
+      return response.status(400).json({ message: error.message });
+    }
+
     console.error("Error en createProduct:", error);
     next(error);
   }
 };
 
+// --- ¡¡¡FUNCIÓN TOTALMENTE REFACTORIZADA!!! ---
 exports.updateProduct = async (request, response, next) => {
   const t = await sequelize.transaction();
   try {
@@ -361,9 +473,6 @@ exports.updateProduct = async (request, response, next) => {
       name,
       description,
       price,
-      stock,
-      size, // size ahora es "36,37,38"
-      color,
       brand,
       category,
       sub_category,
@@ -371,14 +480,15 @@ exports.updateProduct = async (request, response, next) => {
       material,
       season,
       is_new,
+      variants, // <-- ¡NUEVO! Viene como string JSON
     } = request.body;
 
+    const parsedVariants = JSON.parse(variants);
+
+    // 1. Actualizamos el Producto "Padre"
     product.name = name ?? product.name;
     product.description = description ?? product.description;
     product.price = price ?? product.price;
-    product.stock = stock ?? product.stock;
-    product.size = size ?? product.size; // Actualizamos el string de tallas
-    product.color = color ?? product.color;
     product.brand = brand ?? product.brand;
     product.category = category ?? product.category;
     product.sub_category = sub_category ?? product.sub_category;
@@ -386,12 +496,36 @@ exports.updateProduct = async (request, response, next) => {
     product.material = material ?? product.material;
     product.season = season || product.season;
     product.is_new = is_new ?? product.is_new;
+    if (parsedVariants && parsedVariants.length > 0) {
+      product.color = parsedVariants[0].color;
+    }
 
     await product.save({ transaction: t });
+
+    // 2. Sincronizamos las variantes (Borrar y recrear)
+    if (parsedVariants && parsedVariants.length > 0) {
+      await ProductVariantStock.destroy({
+        where: { productId: id },
+        transaction: t,
+      });
+
+      const variantData = parsedVariants.map((v) => ({
+        productId: id,
+        color: v.color,
+        size: v.size,
+        stock: v.stock,
+      }));
+
+      await ProductVariantStock.bulkCreate(variantData, { transaction: t });
+    }
+
     await t.commit();
 
     const updatedProduct = await Product.findByPk(id, {
-      include: [{ model: ProductImage, as: "images" }],
+      include: [
+        { model: ProductImage, as: "images" },
+        { model: ProductVariantStock, as: "variants" },
+      ],
     });
 
     response.json(updatedProduct);
@@ -420,7 +554,7 @@ exports.deleteProduct = async (request, response, next) => {
     if (!product) {
       return response.status(404).json({ message: "Producto no encontrado" });
     }
-    await product.destroy(); // 'onDelete: CASCADE' se encarga de la BBDD
+    await product.destroy(); // 'onDelete: CASCADE' se encarga de las imágenes y variantes
 
     if (images.length > 0) {
       images.forEach((image) => {
@@ -438,13 +572,16 @@ exports.deleteProduct = async (request, response, next) => {
       });
     }
 
-    response.json({ message: "Producto y todas sus imágenes eliminados" });
+    response.json({
+      message: "Producto, variantes e imágenes eliminados",
+    });
   } catch (error) {
     console.error("Error en deleteProduct:", error);
     next(error);
   }
 };
 
+// --- ¡¡¡FUNCIÓN REFACTORIZADA!!! ---
 exports.getRelatedProducts = async (request, response, next) => {
   try {
     const { id } = request.params; // ID del producto actual
@@ -471,6 +608,22 @@ exports.getRelatedProducts = async (request, response, next) => {
           order: [["displayOrder", "ASC"]],
           limit: 1,
         },
+      ],
+      // --- ¡ATRIBUTOS CORREGIDOS! ---
+      attributes: [
+        "id",
+        "name",
+        "description",
+        "price",
+        "brand",
+        "category",
+        "sub_category",
+        "gender",
+        "material",
+        "season",
+        "is_new",
+        "created_at",
+        "color", // Incluimos el color principal
       ],
     });
 

@@ -1,3 +1,4 @@
+// src/models/cartItemModel.js
 const { DataTypes } = require("sequelize");
 const sequelize = require("../config/db");
 
@@ -24,28 +25,29 @@ const CartItem = sequelize.define(
       allowNull: false,
       defaultValue: 1,
     },
+    // --- ¡CAMPO AÑADIDO! ---
+    size: {
+      type: DataTypes.STRING,
+      allowNull: true, // Permite nulo para productos sin talla (ej: gorra)
+    },
   },
   {
     tableName: "cart_items",
     timestamps: true,
     createdAt: "created_at",
     updatedAt: "updated_at",
+    // --- ¡ÍNDICE AÑADIDO! ---
+    // Evita duplicados (un usuario no puede tener el mismo producto/talla dos veces)
+    indexes: [
+      {
+        unique: true,
+        fields: ["userId", "productId", "size"],
+      },
+    ],
   }
 );
 
-/**
- * Asocia el modelo CartItem con User y Product
- */
-CartItem.associate = (models) => {
-  CartItem.belongsTo(models.User, {
-    foreignKey: "userId",
-    as: "user",
-  });
-
-  CartItem.belongsTo(models.Product, {
-    foreignKey: "productId",
-    as: "product",
-  });
-};
+// --- FUNCIÓN .associate() ELIMINADA ---
+// Tu fichero index.js ya se encarga de esto.
 
 module.exports = CartItem;

@@ -1,3 +1,4 @@
+// src/middlewares/uploadMiddleware.js
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
@@ -27,7 +28,8 @@ const upload = multer({
   storage,
   limits: { fileSize: 5 * 1024 * 1024 }, // límite 5MB
   fileFilter: (req, file, cb) => {
-    const filetypes = /jpeg|jpg|png|gif/;
+    // --- ¡CAMBIO AQUÍ! ---
+    const filetypes = /jpeg|jpg|png|gif|webp/; // Añadido 'webp'
     const mimetype = filetypes.test(file.mimetype);
     const extname = filetypes.test(
       path.extname(file.originalname).toLowerCase()
@@ -36,12 +38,10 @@ const upload = multer({
     if (mimetype && extname) {
       return cb(null, true);
     }
-    cb(new Error("Solo se permiten imágenes (jpeg, jpg, png, gif)"));
+    // --- Y CAMBIO AQUÍ! ---
+    cb(new Error("Solo se permiten imágenes (jpeg, jpg, png, gif, webp)"));
   },
 });
 
-// --- ¡CAMBIO IMPORTANTE! ---
-// Exportamos 'upload' directamente, ya que las rutas
-// decidirán si usan .single(), .array(), etc.
-// Ya no exportamos upload.single('image') por defecto.
+// Dejamos tu export original, que es más flexible. ¡Bien hecho!
 module.exports = upload;

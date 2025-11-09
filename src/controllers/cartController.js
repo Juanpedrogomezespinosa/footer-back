@@ -1,17 +1,14 @@
-// --- 1. Importar ProductImage ---
+// src/controllers/cartController.js
 const {
   CartItem,
   Product,
-  User,
-  Order,
-  OrderItem,
   ProductImage,
+  ProductVariantStock, // <-- ¡MODELO IMPORTADO!
 } = require("../models");
-const { sendOrderConfirmationEmail } = require("../services/emailService");
+// (Eliminadas las importaciones de Order, User, etc. que no se usan aquí)
 
 /**
  * Obtiene los productos del carrito del usuario actual
- * --- ¡MODIFICADO! ---
  */
 const getCart = async (req, res, next) => {
   try {
@@ -19,7 +16,6 @@ const getCart = async (req, res, next) => {
 
     const cart = await CartItem.findAll({
       where: { userId },
-      // --- 2. Incluir el Producto Y su galería de imágenes ---
       include: [
         {
           model: Product,
@@ -33,10 +29,9 @@ const getCart = async (req, res, next) => {
           ],
         },
       ],
+      order: [["created_at", "DESC"]], // Ordenar por más nuevo
     });
 
-    // --- 3. Mapear la respuesta para añadir la imagen principal ---
-    // (Igual que hicimos en orderController)
     const plainCart = cart.map((item) => {
       const itemJson = item.toJSON();
       if (
@@ -44,16 +39,14 @@ const getCart = async (req, res, next) => {
         itemJson.Product.images &&
         itemJson.Product.images.length > 0
       ) {
-        // Creamos el campo 'image' que el frontend espera
         itemJson.Product.image = itemJson.Product.images[0].imageUrl;
       } else {
-        itemJson.Product.image = null; // O un placeholder
+        itemJson.Product.image = null;
       }
-      // Opcional: delete itemJson.Product.images;
       return itemJson;
     });
 
-    res.json(plainCart); // <-- 4. Devolver el carrito mapeado
+    res.json(plainCart);
   } catch (error) {
     next(error);
   }
@@ -61,27 +54,65 @@ const getCart = async (req, res, next) => {
 
 /**
  * Añade un producto al carrito del usuario actual
- * (Sin cambios)
  */
 const addToCart = async (req, res, next) => {
   try {
     const userId = req.user.id;
-    const { productId, quantity } = req.body;
+    // --- ¡NUEVO! Recibimos 'size' ---
+    const { productId, quantity, size } = req.body;
 
+    // 1. Validar el producto
     const product = await Product.findByPk(productId);
     if (!product) {
       return res.status(404).json({ message: "Producto no encontrado" });
     }
 
+    // 2. Validar el stock de la variante (¡NUEVA LÓGICA!)
+    if (size) {
+      const variant = await ProductVariantStock.findOne({
+        where: { productId, size },
+      });
+
+      if (!variant) {
+        return res
+          .status(404)
+          .json({ message: "Talla no disponible para este producto." });
+      }
+      if (variant.stock < quantity) {
+        return res.status(400).json({
+          message: `Stock insuficiente. Solo quedan ${variant.stock} unidades de la talla ${size}.`,
+        });
+      }
+    } else {
+      // Si el producto SÍ tiene variantes (ej: zapatillas) pero NO se envió talla
+      const hasVariants = await ProductVariantStock.count({
+        where: { productId },
+      });
+      if (hasVariants > 0) {
+        return res
+          .status(400)
+          .json({ message: "Por favor, selecciona una talla." });
+      }
+      // (Aquí iría la lógica para productos sin variantes, ej: una gorra)
+    }
+
+    // 3. Buscar item existente (¡Ahora también por talla!)
     const existingItem = await CartItem.findOne({
-      where: { userId, productId },
+      where: { userId, productId, size: size || null }, // Guardar null si no hay talla
     });
 
     if (existingItem) {
       existingItem.quantity += quantity;
+      // TODO: Aquí también deberíamos re-validar el stock total en carrito vs. variante
       await existingItem.save();
     } else {
-      await CartItem.create({ userId, productId, quantity });
+      // 4. Crear nuevo item (¡con la talla!)
+      await CartItem.create({
+        userId,
+        productId,
+        quantity,
+        size: size || null,
+      });
     }
 
     res.status(201).json({ message: "Producto añadido al carrito" });
@@ -92,7 +123,6 @@ const addToCart = async (req, res, next) => {
 
 /**
  * Actualiza la cantidad de un producto en el carrito
- * (Sin cambios)
  */
 const updateCartItem = async (req, res, next) => {
   try {
@@ -116,6 +146,20 @@ const updateCartItem = async (req, res, next) => {
         .json({ message: "Producto no encontrado en el carrito" });
     }
 
+    // ¡NUEVO! Validar stock antes de actualizar
+    if (cartItem.size) {
+      // Solo si el item tiene talla
+      const variant = await ProductVariantStock.findOne({
+        where: { productId: cartItem.productId, size: cartItem.size },
+      });
+      if (variant && variant.stock < quantity) {
+        return res.status(400).json({
+          message: `Stock insuficiente. Solo quedan ${variant.stock} unidades.`,
+        });
+      }
+    }
+    // (Aquí faltaría la lógica para productos sin variantes)
+
     cartItem.quantity = quantity;
     await cartItem.save();
 
@@ -127,7 +171,6 @@ const updateCartItem = async (req, res, next) => {
 
 /**
  * Elimina un producto del carrito del usuario
- * (Sin cambios)
  */
 const removeCartItem = async (req, res, next) => {
   try {
@@ -142,108 +185,11 @@ const removeCartItem = async (req, res, next) => {
   }
 };
 
-/**
- * Procesa la compra del carrito del usuario:
- * (Esta función 'checkout' está obsoleta,
- * la real es 'createOrder' en orderController,
- * pero la dejamos por si la usas en otro sitio)
- */
-const checkout = async (req, res, next) => {
-  try {
-    const userId = req.user.id;
-
-    const cartItems = await CartItem.findAll({
-      where: { userId },
-      include: [Product],
-    });
-
-    if (cartItems.length === 0) {
-      return res.status(400).json({ message: "El carrito está vacío" });
-    }
-
-    const total = cartItems.reduce((sum, item) => {
-      return sum + item.Product.price * item.quantity;
-    }, 0);
-
-    const order = await Order.create({
-      userId,
-      total,
-      status: "pendiente",
-      // ¡OJO! Esta función 'checkout' no pide 'addressId',
-      // por lo que fallará. La función correcta es 'createOrder'
-      // en 'orderController.js'
-      addressId: 1, // <--- ESTO ES UN VALOR FIJO, ¡HAY QUE QUITAR ESTA FUNCIÓN!
-    });
-
-    for (const item of cartItems) {
-      await OrderItem.create({
-        orderId: order.id,
-        productId: item.productId,
-        quantity: item.quantity,
-        price: item.Product.price,
-      });
-    }
-
-    await CartItem.destroy({ where: { userId } });
-
-    order.status = "pagado";
-    await order.save();
-
-    const updatedOrder = await Order.findOne({
-      where: { id: order.id },
-      include: [
-        {
-          model: OrderItem,
-          include: [Product],
-        },
-      ],
-    });
-
-    try {
-      const user = await User.findByPk(userId);
-
-      const itemsForEmail = updatedOrder.OrderItems.map((item) => ({
-        productName: item.Product.name,
-        quantity: item.quantity,
-        price: item.price,
-      }));
-
-      console.log("📧 Enviando email de confirmación a", user.email);
-      await sendOrderConfirmationEmail(
-        user.email,
-        user.username,
-        itemsForEmail,
-        updatedOrder.total
-      );
-      console.log("✅ Email de confirmación enviado correctamente");
-    } catch (emailError) {
-      console.error("❌ Error enviando email de confirmación:", emailError);
-    }
-
-    res.json({
-      message: "Compra realizada con éxito",
-      order: {
-        id: updatedOrder.id,
-        total: updatedOrder.total,
-        status: updatedOrder.status,
-        createdAt: updatedOrder.createdAt,
-        items: updatedOrder.OrderItems.map((item) => ({
-          productId: item.productId,
-          productName: item.Product.name,
-          quantity: item.quantity,
-          price: item.price,
-        })),
-      },
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
+// --- ¡CORREGIDO! ---
+// Eliminada la función 'checkout' obsoleta y el 'export' erróneo.
 module.exports = {
   getCart,
   addToCart,
   updateCartItem,
   removeCartItem,
-  checkout,
 };

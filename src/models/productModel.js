@@ -1,5 +1,6 @@
+// src/models/productModel.js
 const { DataTypes } = require("sequelize");
-const sequelize = require("../config/db");
+const sequelize = require("../config/db"); // 1. Importar la instancia de Sequelize
 
 const Product = sequelize.define(
   "Product",
@@ -10,53 +11,35 @@ const Product = sequelize.define(
       autoIncrement: true,
     },
     name: {
-      type: DataTypes.STRING(100),
+      type: DataTypes.STRING,
       allowNull: false,
+      unique: false,
     },
     description: {
       type: DataTypes.TEXT,
+      allowNull: true,
     },
     price: {
       type: DataTypes.DECIMAL(10, 2),
       allowNull: false,
     },
-    stock: {
-      type: DataTypes.INTEGER,
-      defaultValue: 0,
-      validate: {
-        min: 0,
-      },
-    },
-    size: {
-      type: DataTypes.STRING(10),
-      allowNull: true,
-    },
+    // CAMPO ELIMINADO: 'stock'
+    // CAMPO ELIMINADO: 'size'
     color: {
-      type: DataTypes.STRING(30),
+      // SÍ mantenemos 'color' para el color principal/agrupador
+      type: DataTypes.STRING,
       allowNull: true,
     },
     brand: {
-      type: DataTypes.STRING(50),
+      type: DataTypes.STRING,
       allowNull: true,
     },
     category: {
       type: DataTypes.ENUM("zapatillas", "ropa", "complementos"),
       allowNull: false,
-      validate: {
-        notNull: {
-          msg: "La categoría no puede ser nula.",
-        },
-        notEmpty: {
-          msg: "La categoría no puede estar vacía.",
-        },
-        isIn: {
-          args: [["zapatillas", "ropa", "complementos"]],
-          msg: "Categoría inválida. Debe ser 'zapatillas', 'ropa' o 'complementos'.",
-        },
-      },
     },
     sub_category: {
-      type: DataTypes.STRING(50),
+      type: DataTypes.STRING,
       allowNull: true,
     },
     gender: {
@@ -64,49 +47,30 @@ const Product = sequelize.define(
       allowNull: true,
     },
     material: {
-      type: DataTypes.STRING(50),
+      type: DataTypes.STRING,
       allowNull: true,
     },
     season: {
-      type: DataTypes.ENUM("verano", "invierno", "otoño", "primavera"),
+      type: DataTypes.ENUM("verano", "primavera", "otoño", "invierno", "todas"),
       allowNull: true,
+      defaultValue: "todas",
     },
     is_new: {
       type: DataTypes.BOOLEAN,
-      defaultValue: false,
-    },
-    // --- ¡CAMBIO IMPORTANTE! ---
-    // La columna 'image' se elimina de este modelo.
-    // La gestionaremos a través de la tabla 'product_images'.
-    /*
-    image: {
-      type: DataTypes.STRING(255),
-      allowNull: true,
-    },
-    */
-    created_at: {
-      type: DataTypes.DATE,
+      allowNull: false,
+      defaultValue: true,
     },
   },
   {
     tableName: "products",
     timestamps: true,
-    createdAt: "created_at",
-    updatedAt: false,
     underscored: true,
+    createdAt: "created_at",
+    updatedAt: "updated_at",
   }
 );
 
-/**
- * --- ¡NUEVO! Asociación ---
- * Aquí definimos la relación "Uno a Muchos" a nivel de modelo.
- * Le decimos a Sequelize que 'Product' puede tener muchas 'ProductImages'.
- */
-Product.associate = (models) => {
-  Product.hasMany(models.ProductImage, {
-    foreignKey: "productId",
-    as: "images", // Este 'as' (alias) es CLAVE. Lo usaremos en el controlador.
-  });
-};
+// ELIMINADA TODA LA FUNCIÓN .associate()
+// index.js se encargará de esto.
 
 module.exports = Product;
