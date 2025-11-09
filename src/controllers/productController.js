@@ -180,7 +180,7 @@ exports.getAllProducts = async (request, response, next) => {
       totalPages,
       totalItems,
       nextPage: page < totalPages ? page + 1 : null,
-      prevPage: page > 1 ? page - 1 : null, // <-- ¡¡AQUÍ ESTABA EL BUG!!
+      prevPage: page > 1 ? page - 1 : null,
       products: productsResponse,
     });
   } catch (error) {
@@ -189,6 +189,7 @@ exports.getAllProducts = async (request, response, next) => {
   }
 };
 
+// --- ¡FUNCIÓN MODIFICADA! ---
 exports.getProductById = async (request, response, next) => {
   try {
     const { id } = request.params;
@@ -208,17 +209,54 @@ exports.getProductById = async (request, response, next) => {
       return response.status(404).json({ message: "Producto no encontrado" });
     }
 
+    // 1. Buscar valoraciones
     const average = await Rating.findOne({
       attributes: [[fn("AVG", col("stars")), "averageRating"]],
       where: { product_id: id },
       raw: true,
     });
-
     const averageRating = average?.averageRating
       ? parseFloat(parseFloat(average.averageRating).toFixed(2))
       : 0;
 
-    response.json({ ...product.toJSON(), averageRating });
+    // 2. ¡NUEVO! Buscar Variantes ("hermanos")
+    const variants = await Product.findAll({
+      where: {
+        name: product.name, // Buscar productos con el mismo nombre
+        id: { [Op.ne]: id }, // Excluir el producto actual
+      },
+      attributes: ["id", "color"], // Solo necesitamos el ID y el color para los selectores
+      include: [
+        {
+          // Incluir la imagen principal de cada variante
+          model: ProductImage,
+          as: "images",
+          attributes: ["imageUrl"],
+          where: { displayOrder: 0 },
+          required: false, // Para que no falle si una variante no tiene imagen
+        },
+      ],
+    });
+
+    // 3. Limpiar la respuesta de las variantes
+    const cleanedVariants = variants.map((v) => {
+      const variantJson = v.toJSON();
+      return {
+        id: variantJson.id,
+        color: variantJson.color,
+        image:
+          variantJson.images && variantJson.images.length > 0
+            ? variantJson.images[0].imageUrl
+            : null,
+      };
+    });
+
+    // 4. Devolver todo junto
+    response.json({
+      ...product.toJSON(),
+      averageRating,
+      variants: cleanedVariants, // Añadir el array de variantes
+    });
   } catch (error) {
     console.error("Error en getProductById:", error);
     next(error);
@@ -233,7 +271,7 @@ exports.createProduct = async (request, response, next) => {
       description,
       price,
       stock,
-      size,
+      size, // size ahora es "36,37,38"
       color,
       brand,
       category,
@@ -258,15 +296,15 @@ exports.createProduct = async (request, response, next) => {
         name,
         description,
         price,
-        stock: stock || 0, // Asegurarnos de que si 'stock' es undefined, se guarde como 0
-        size,
+        stock: stock || 0,
+        size, // Guardamos el string de tallas "36,37,38"
         color,
         brand,
         category,
         sub_category,
         gender,
         material,
-        season: season || null, // Si 'season' es un string vacío, guárdalo como NULL
+        season: season || null,
         is_new,
       },
       { transaction: t }
@@ -324,7 +362,7 @@ exports.updateProduct = async (request, response, next) => {
       description,
       price,
       stock,
-      size,
+      size, // size ahora es "36,37,38"
       color,
       brand,
       category,
@@ -339,14 +377,14 @@ exports.updateProduct = async (request, response, next) => {
     product.description = description ?? product.description;
     product.price = price ?? product.price;
     product.stock = stock ?? product.stock;
-    product.size = size ?? product.size;
+    product.size = size ?? product.size; // Actualizamos el string de tallas
     product.color = color ?? product.color;
     product.brand = brand ?? product.brand;
     product.category = category ?? product.category;
     product.sub_category = sub_category ?? product.sub_category;
     product.gender = gender ?? product.gender;
     product.material = material ?? product.material;
-    product.season = season || product.season; // Aseguramos que se maneje el 'null'
+    product.season = season || product.season;
     product.is_new = is_new ?? product.is_new;
 
     await product.save({ transaction: t });
@@ -411,7 +449,6 @@ exports.getRelatedProducts = async (request, response, next) => {
   try {
     const { id } = request.params; // ID del producto actual
 
-    // 1. Encontrar la categoría del producto actual
     const currentProduct = await Product.findByPk(id, {
       attributes: ["category"],
     });
@@ -420,38 +457,33 @@ exports.getRelatedProducts = async (request, response, next) => {
       return response.status(404).json({ message: "Producto no encontrado" });
     }
 
-    // 2. Buscar 4 productos de la misma categoría, excluyendo el actual
     const relatedProducts = await Product.findAll({
       where: {
         category: currentProduct.category,
-        id: { [Op.ne]: id }, // [Op.ne] significa "Not Equal" (no es igual)
+        id: { [Op.ne]: id },
       },
-      limit: 4, // Como en el diseño
-      // 3. Incluir sus imágenes (¡solo la principal!)
+      limit: 4,
       include: [
         {
           model: ProductImage,
           as: "images",
           attributes: ["imageUrl", "displayOrder"],
           order: [["displayOrder", "ASC"]],
-          limit: 1, // Solo queremos la primera imagen para la tarjeta
+          limit: 1,
         },
       ],
     });
 
-    // 4. Mapear la respuesta para que coincida con 'product-card'
     const productsResponse = relatedProducts.map((product) => {
       const plainProduct = product.toJSON();
       let mainImage = null;
       if (plainProduct.images && plainProduct.images.length > 0) {
         mainImage = plainProduct.images[0].imageUrl;
       }
-      // Devolvemos el producto plano con 'image' (singular)
-      // para que 'app-product-card' funcione directamente.
       return {
         ...plainProduct,
-        image: mainImage, // El campo 'image' que espera el product-card
-        images: undefined, // No necesitamos el array en la tarjeta
+        image: mainImage,
+        images: undefined,
       };
     });
 
