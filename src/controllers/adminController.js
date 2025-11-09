@@ -15,8 +15,6 @@ const { Op, fn, col, literal } = require("sequelize");
  */
 function calculatePercentageChange(current, previous) {
   if (previous === 0) {
-    // Si el mes pasado fue 0, cualquier aumento es "infinito"
-    // Devolvemos 100% si hay ventas nuevas, 0% si no.
     return current > 0 ? 100 : 0;
   }
   return ((current - previous) / previous) * 100;
@@ -27,11 +25,10 @@ function calculatePercentageChange(current, previous) {
  */
 exports.getDashboardStats = async (req, res, next) => {
   try {
-    // 1. Total Revenue (Ingresos Totales este mes vs. mes pasado)
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0); // El día 0 del mes actual es el último día del mes pasado
+    const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
 
     const revenueCurrentMonth = await Order.sum("total", {
       where: {
@@ -45,12 +42,11 @@ exports.getDashboardStats = async (req, res, next) => {
         status: "pagado",
         createdAt: {
           [Op.gte]: startOfLastMonth,
-          [Op.lt]: startOfMonth, // Usamos 'lt' (less than) startOfMonth
+          [Op.lt]: startOfMonth,
         },
       },
     });
 
-    // 2. Orders Today (Pedidos hoy vs. ayer)
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
     const startOfYesterday = new Date(startOfToday);
@@ -69,9 +65,8 @@ exports.getDashboardStats = async (req, res, next) => {
       },
     });
 
-    // 3. New Users (Nuevos usuarios esta semana vs. semana pasada)
     const startOfThisWeek = new Date(startOfToday);
-    startOfThisWeek.setDate(startOfToday.getDate() - startOfToday.getDay()); // Va al Domingo (inicio de la semana)
+    startOfThisWeek.setDate(startOfToday.getDate() - startOfToday.getDay());
     const startOfLastWeek = new Date(startOfThisWeek);
     startOfLastWeek.setDate(startOfThisWeek.getDate() - 7);
 
@@ -88,12 +83,10 @@ exports.getDashboardStats = async (req, res, next) => {
       },
     });
 
-    // 4. Pending Shipments (Pedidos 'pagados' pero no 'enviados')
-    // Contamos los que se marcaron como 'pagado' hoy vs. ayer
     const pendingToday = await Order.count({
       where: {
-        status: "pagado", // Asumimos que 'pagado' es pendiente de envío
-        createdAt: { [Op.gte]: startOfToday }, // Usamos createdAt, asumiendo que se paga al crear
+        status: "pagado",
+        createdAt: { [Op.gte]: startOfToday },
       },
     });
 
@@ -107,7 +100,6 @@ exports.getDashboardStats = async (req, res, next) => {
       },
     });
 
-    // Ensamblar la respuesta
     const stats = {
       totalRevenue: {
         amount: revenueCurrentMonth || 0,
@@ -142,7 +134,6 @@ exports.getDashboardStats = async (req, res, next) => {
  */
 exports.getSalesGraphData = async (req, res, next) => {
   try {
-    // 1. Ventas de los últimos 30 días, agrupadas por día
     const salesLast30Days = await Order.findAll({
       attributes: [
         [fn("DATE", col("createdAt")), "date"],
@@ -159,7 +150,6 @@ exports.getSalesGraphData = async (req, res, next) => {
       raw: true,
     });
 
-    // 2. Total de ventas de los 30 días anteriores (para comparación)
     const salesPrevious30Days = await Order.sum("total", {
       where: {
         status: "pagado",
@@ -170,27 +160,24 @@ exports.getSalesGraphData = async (req, res, next) => {
       },
     });
 
-    // 3. Calcular el total de los últimos 30 días
     const totalCurrentPeriod = salesLast30Days.reduce(
       (sum, day) => sum + parseFloat(day.totalSales),
       0
     );
     const totalPreviousPeriod = parseFloat(salesPrevious30Days) || 0;
 
-    // Formatear los datos para la gráfica
     const graphData = {
       labels: [],
       data: [],
     };
 
-    // Rellenar los 30 días (incluso si no hubo ventas)
     const dateMap = new Map(
       salesLast30Days.map((item) => [item.date, item.totalSales])
     );
     for (let i = 29; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
-      const dateString = d.toISOString().split("T")[0]; // Formato YYYY-MM-DD
+      const dateString = d.toISOString().split("T")[0];
 
       graphData.labels.push(dateString);
       graphData.data.push(parseFloat(dateMap.get(dateString) || 0));
@@ -224,10 +211,10 @@ exports.getAllOrders = async (req, res, next) => {
       include: [
         {
           model: User,
-          attributes: ["id", "username", "email"], // Solo traer lo necesario del usuario
+          attributes: ["id", "username", "email"],
         },
         {
-          model: Address, // Incluir la dirección de envío
+          model: Address,
         },
       ],
       order: [["createdAt", "DESC"]],
@@ -237,8 +224,6 @@ exports.getAllOrders = async (req, res, next) => {
 
     const totalPages = Math.ceil(count / limit);
 
-    // --- ¡AQUÍ ESTABA EL BUG DE LA PAGINACIÓN! ---
-    // Faltaban nextPage y prevPage
     res.json({
       currentPage: page,
       totalPages,
@@ -255,7 +240,6 @@ exports.getAllOrders = async (req, res, next) => {
 
 /**
  * [ADMIN] Obtiene CUALQUIER pedido por su ID.
- * (Sin comprobar el req.user.id)
  */
 exports.getAdminOrderById = async (req, res, next) => {
   try {
@@ -267,22 +251,21 @@ exports.getAdminOrderById = async (req, res, next) => {
           attributes: ["id", "username", "email"],
         },
         {
-          model: Address, // Incluye la dirección completa
+          model: Address,
         },
         {
           model: OrderItem,
           include: [
             {
               model: Product,
-              attributes: ["id", "name"], // Solo id y nombre del producto
+              attributes: ["id", "name"],
               include: [
                 {
-                  // Incluimos la imagen principal del producto
                   model: ProductImage,
                   as: "images",
                   attributes: ["imageUrl"],
                   where: { displayOrder: 0 },
-                  required: false, // LEFT JOIN, por si un producto no tiene imagen
+                  required: false,
                 },
               ],
             },
@@ -331,7 +314,6 @@ exports.getAdminOrderById = async (req, res, next) => {
   }
 };
 
-// --- ¡NUEVA FUNCIÓN AÑADIDA! ---
 /**
  * [ADMIN] Actualiza el estado de un pedido.
  */
@@ -340,7 +322,7 @@ exports.updateOrderStatus = async (req, res, next) => {
     const { id } = req.params;
     const { status } = req.body;
 
-    // Validar el estado recibido
+    // Esta lista AHORA SÍ es correcta, pero el MODELO debe coincidir.
     const validStatuses = [
       "pendiente",
       "pagado",
@@ -362,7 +344,8 @@ exports.updateOrderStatus = async (req, res, next) => {
 
     res.json({ message: "Estado del pedido actualizado.", order });
   } catch (error) {
+    // Este catch es el que te está enviando el "Data truncated"
     console.error("Error en updateOrderStatus:", error);
-    next(error);
+    next(error); // Pasa el error de Sequelize al errorHandler
   }
 };

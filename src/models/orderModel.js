@@ -1,3 +1,4 @@
+// src/models/orderModel.js
 const { DataTypes } = require("sequelize");
 const sequelize = require("../config/db");
 // const User = require("./userModel"); // Ya no es necesario aquí
@@ -30,6 +31,7 @@ const Order = sequelize.define(
         "pendiente", // Creada, pendiente de pago
         "pagado", // Pagada (confirmada)
         "enviado",
+        "entregado", // <-- ¡¡AÑADIDO!!
         "cancelado"
       ),
       defaultValue: "pendiente",
