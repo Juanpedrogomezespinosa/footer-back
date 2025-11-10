@@ -4,7 +4,7 @@ const {
   Product,
   Rating,
   ProductImage,
-  ProductVariantStock, // <-- Asegúrate de que tu index.js lo exporta
+  ProductVariantStock,
   sequelize,
 } = require("../models");
 const fs = require("fs");
@@ -367,7 +367,18 @@ exports.createProduct = async (request, response, next) => {
     } = request.body;
 
     const images = request.files;
+
+    // --- ¡¡¡CORRECCIÓN DE ROBUSTEZ!!! ---
+    // 1. Validamos que 'variants' exista ANTES de intentar parsearlo.
+    if (!variants) {
+      await t.rollback();
+      return response.status(400).json({
+        message: "El campo 'variants' (con el stock y tallas) es requerido.",
+      });
+    }
+
     const parsedVariants = JSON.parse(variants);
+    // ------------------------------------
 
     if (!images || images.length === 0) {
       await t.rollback();
@@ -375,6 +386,8 @@ exports.createProduct = async (request, response, next) => {
         .status(400)
         .json({ message: "Se requiere al menos una imagen." });
     }
+
+    // 2. Validamos que el parseo dio un array con contenido.
     if (!parsedVariants || parsedVariants.length === 0) {
       await t.rollback();
       return response
@@ -452,6 +465,13 @@ exports.createProduct = async (request, response, next) => {
       return response.status(400).json({ message: error.message });
     }
 
+    // Capturamos el error si 'variants' no es un JSON válido
+    if (error instanceof SyntaxError) {
+      return response
+        .status(400)
+        .json({ message: "El formato de 'variants' no es un JSON válido." });
+    }
+
     console.error("Error en createProduct:", error);
     next(error);
   }
@@ -483,7 +503,13 @@ exports.updateProduct = async (request, response, next) => {
       variants, // <-- ¡NUEVO! Viene como string JSON
     } = request.body;
 
-    const parsedVariants = JSON.parse(variants);
+    // --- ¡¡¡AQUÍ ESTÁ LA CORRECCIÓN!!! ---
+    // Solo parseamos 'variants' si es un string válido (no es undefined ni null).
+    // Si 'variants' es undefined, 'parsedVariants' será undefined.
+    // La lógica de 'if (parsedVariants && ...)' más abajo gestionará esto
+    // correctamente, omitiendo la actualización de variantes.
+    const parsedVariants = variants ? JSON.parse(variants) : undefined;
+    // ------------------------------------
 
     // 1. Actualizamos el Producto "Padre"
     product.name = name ?? product.name;
@@ -496,6 +522,8 @@ exports.updateProduct = async (request, response, next) => {
     product.material = material ?? product.material;
     product.season = season || product.season;
     product.is_new = is_new ?? product.is_new;
+
+    // Actualizamos el color principal SI se pasaron nuevas variantes
     if (parsedVariants && parsedVariants.length > 0) {
       product.color = parsedVariants[0].color;
     }
@@ -503,6 +531,7 @@ exports.updateProduct = async (request, response, next) => {
     await product.save({ transaction: t });
 
     // 2. Sincronizamos las variantes (Borrar y recrear)
+    // Esto solo se ejecuta si 'parsedVariants' no es undefined y tiene contenido
     if (parsedVariants && parsedVariants.length > 0) {
       await ProductVariantStock.destroy({
         where: { productId: id },
@@ -539,6 +568,13 @@ exports.updateProduct = async (request, response, next) => {
         .json({ message: "Error de validación", errors: messages });
     }
 
+    // Capturamos el error si 'variants' no es un JSON válido
+    if (error instanceof SyntaxError) {
+      return response
+        .status(400)
+        .json({ message: "El formato de 'variants' no es un JSON válido." });
+    }
+
     console.error("Error en updateProduct:", error);
     next(error);
   }
@@ -559,9 +595,20 @@ exports.deleteProduct = async (request, response, next) => {
     if (images.length > 0) {
       images.forEach((image) => {
         try {
-          const imagePath = path.join(__dirname, "..", image.imageUrl);
+          // Asumimos que la URL es /uploads/filename.png
+          const imagePath = path.join(
+            __dirname,
+            "..",
+            "uploads", // <- Asegúrate de que esta es la carpeta correcta
+            path.basename(image.imageUrl) // Extraemos solo el nombre del archivo
+          );
+
           if (fs.existsSync(imagePath)) {
             fs.unlinkSync(imagePath);
+          } else {
+            console.warn(
+              `El fichero de imagen no se encontró en: ${imagePath}`
+            );
           }
         } catch (err) {
           console.warn(
