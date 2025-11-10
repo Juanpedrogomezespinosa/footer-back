@@ -130,7 +130,7 @@ exports.getAllProducts = async (request, response, next) => {
     }
 
     const queryOptions = {
-      // Columnas del producto PADRE (¡SIN 'stock' NI 'size'!)
+      // Columnas del producto PADRE
       attributes: [
         "id",
         "name",
@@ -145,6 +145,18 @@ exports.getAllProducts = async (request, response, next) => {
         "is_new",
         "created_at",
         "color", // El color "principal"
+        // --- ¡¡¡NUEVO!!! ---
+        // Aquí le pedimos a Sequelize que sume el stock de todas las variantes
+        // para este producto (Product.id) y lo llame 'totalStock'.
+        [
+          sequelize.literal(`(
+            SELECT SUM(stock) 
+            FROM product_variant_stock 
+            WHERE product_id = Product.id
+          )`),
+          "totalStock",
+        ],
+        // --- FIN DE LO NUEVO ---
       ],
       where: whereProduct,
       include: includes, // Usamos el array de includes dinámico
@@ -210,12 +222,19 @@ exports.getAllProducts = async (request, response, next) => {
           ratingCount: 0,
         };
 
+        // --- ¡¡¡NUEVO!!! ---
+        // El 'totalStock' de la sub-query viene como string o null.
+        // Lo convertimos a número. Si es 'null' (sin variantes), lo dejamos en 0.
+        const stock = parseInt(plainProduct.totalStock, 10) || 0;
+        // --- FIN DE LO NUEVO ---
+
         return {
           ...plainProduct,
           image: mainImage,
           images: undefined,
           averageRating: parseFloat(rating.averageRating) || 0,
           ratingCount: rating.ratingCount,
+          totalStock: stock, // <- ¡Aquí lo pasamos al frontend!
         };
       })
       .filter((product) =>
