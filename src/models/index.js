@@ -35,7 +35,6 @@ Object.values(models).forEach((model) => {
 });
 
 // --- 3. ASOCIACIONES EXPLÍCITAS (Nuestra fuente de verdad) ---
-// (Aquí ya tenías la mayoría)
 
 User.hasMany(Order, { foreignKey: "userId", onDelete: "CASCADE" });
 Order.belongsTo(User, { foreignKey: "userId" });
@@ -43,11 +42,13 @@ Order.belongsTo(User, { foreignKey: "userId" });
 Order.hasMany(OrderItem, { foreignKey: "orderId", onDelete: "CASCADE" });
 OrderItem.belongsTo(Order, { foreignKey: "orderId" });
 
-Order.belongsToMany(Product, {
-  through: OrderItem,
-  foreignKey: "orderId",
-  otherKey: "productId",
-});
+// --- ¡¡¡ASOCIACIÓN ANTIGUA ELIMINADA!!! ---
+// Ya no tiene sentido una relación directa Order <-> Product
+// Order.belongsToMany(Product, {
+//   through: OrderItem,
+//   foreignKey: "orderId",
+//   otherKey: "productId",
+// });
 
 User.hasMany(CartItem, { foreignKey: "userId", onDelete: "CASCADE" });
 CartItem.belongsTo(User, { foreignKey: "userId" });
@@ -64,26 +65,37 @@ Address.belongsTo(User, { foreignKey: "userId" });
 Address.hasMany(Order, { foreignKey: "addressId" });
 Order.belongsTo(Address, { foreignKey: "addressId" });
 
-// --- ¡¡¡AQUÍ ESTÁ LA MAGIA!!! ---
-// Centralizamos TODAS las asociaciones de Product aquí.
+// --- ¡¡¡AQUÍ ESTÁ LA MAGIA CORREGIDA!!! ---
 
-// Product <-> OrderItem
-Product.hasMany(OrderItem, { foreignKey: "productId" });
-OrderItem.belongsTo(Product, { foreignKey: "productId" });
+// --- Product <-> OrderItem (¡CORREGIDO!) ---
+// La relación ya no es con Product, es con ProductVariantStock
+ProductVariantStock.hasMany(OrderItem, {
+  foreignKey: "productVariantStockId",
+});
+OrderItem.belongsTo(ProductVariantStock, {
+  foreignKey: "productVariantStockId",
+});
 
-// Product <-> CartItem
-Product.hasMany(CartItem, { foreignKey: "productId" });
-CartItem.belongsTo(Product, { foreignKey: "productId" });
+// --- Product <-> CartItem (¡CORREGIDO!) ---
+// La relación ya no es con Product, es con ProductVariantStock
+ProductVariantStock.hasMany(CartItem, {
+  foreignKey: "productVariantStockId",
+});
+CartItem.belongsTo(ProductVariantStock, {
+  foreignKey: "productVariantStockId",
+  // Puedes añadir un alias si lo necesitas en tus consultas
+  // as: 'Variant'
+});
 
-// Product <-> Comment
+// Product <-> Comment (Sigue igual, los comentarios son sobre el producto general)
 Product.hasMany(Comment, { foreignKey: "productId", onDelete: "CASCADE" });
 Comment.belongsTo(Product, { foreignKey: "productId" });
 
-// Product <-> Rating
+// Product <-> Rating (Sigue igual, las valoraciones son sobre el producto general)
 Product.hasMany(Rating, { foreignKey: "productId", onDelete: "CASCADE" });
 Rating.belongsTo(Product, { foreignKey: "productId" });
 
-// Product <-> ProductImage (La que arregló el admin)
+// Product <-> ProductImage (Sigue igual)
 Product.hasMany(ProductImage, {
   foreignKey: "productId",
   as: "images", // <-- El alias que busca el controller
@@ -91,14 +103,16 @@ Product.hasMany(ProductImage, {
 });
 ProductImage.belongsTo(Product, { foreignKey: "productId" });
 
-// Product <-> ProductVariantStock (La que arreglará la pág. pública)
+// Product <-> ProductVariantStock (Sigue igual, esta es la conexión clave)
 Product.hasMany(ProductVariantStock, {
   foreignKey: "productId",
   as: "variants", // <-- El alias que busca el controller
 });
 ProductVariantStock.belongsTo(Product, {
   foreignKey: "productId",
-  as: "product",
+  // Este alias es crucial para que el orderController pueda hacer:
+  // include: [{ model: ProductVariantStock, include: [Product] }]
+  as: "Product",
 });
 // ------------------------------------
 

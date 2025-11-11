@@ -14,21 +14,27 @@ const CartItem = sequelize.define(
       type: DataTypes.INTEGER,
       allowNull: false,
       field: "userId",
+      references: {
+        model: "users", // Asumo que tu tabla de usuarios se llama 'users'
+        key: "id",
+      },
     },
-    productId: {
+    // --- ¡¡¡CAMBIO PRINCIPAL AQUÍ!!! ---
+    // Eliminados 'productId' y 'size'
+    productVariantStockId: {
       type: DataTypes.INTEGER,
       allowNull: false,
-      field: "productId",
+      field: "productVariantStockId",
+      references: {
+        model: "product_variant_stock", // Apunta a la tabla de variantes
+        key: "id",
+      },
     },
+    // ---------------------------------
     quantity: {
       type: DataTypes.INTEGER,
       allowNull: false,
       defaultValue: 1,
-    },
-    // --- ¡CAMPO AÑADIDO! ---
-    size: {
-      type: DataTypes.STRING,
-      allowNull: true, // Permite nulo para productos sin talla (ej: gorra)
     },
   },
   {
@@ -36,18 +42,20 @@ const CartItem = sequelize.define(
     timestamps: true,
     createdAt: "created_at",
     updatedAt: "updated_at",
-    // --- ¡ÍNDICE AÑADIDO! ---
-    // Evita duplicados (un usuario no puede tener el mismo producto/talla dos veces)
+    // --- ¡¡¡ÍNDICE ACTUALIZADO!!! ---
+    // Ahora la unicidad es por usuario y variante específica
     indexes: [
       {
         unique: true,
-        fields: ["userId", "productId", "size"],
+        fields: ["userId", "productVariantStockId"],
+        name: "cart_items_user_id_variant_id", // Nuevo nombre del índice
       },
     ],
   }
 );
 
-// --- FUNCIÓN .associate() ELIMINADA ---
-// Tu fichero index.js ya se encarga de esto.
+// --- RELACIONES ELIMINADAS ---
+// Todas las asociaciones AHORA se manejan centralizadamente en 'src/models/index.js'
+// para evitar este tipo de errores.
 
 module.exports = CartItem;
