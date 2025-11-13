@@ -19,7 +19,7 @@ const validSortFields = [
 ];
 const validSortDirections = ["ASC", "DESC"];
 
-// --- getAllProducts (SIN CAMBIOS) ---
+// --- MODIFICADO: Añadido filtro 'is_active' ---
 exports.getAllProducts = async (request, response, next) => {
   try {
     let {
@@ -40,6 +40,8 @@ exports.getAllProducts = async (request, response, next) => {
       limit = 18,
       sortBy = "created_at",
       order = "DESC",
+      // 1. AÑADIDO: Parámetro para que el admin vea productos archivados
+      showArchived,
     } = request.query;
 
     page = parseInt(page, 10);
@@ -62,6 +64,14 @@ exports.getAllProducts = async (request, response, next) => {
 
     // --- LÓGICA DE FILTRADO DE PRODUCTO PADRE ---
     const whereProduct = {};
+
+    // 2. AÑADIDO: Filtro de 'is_active'
+    // Por defecto, solo mostramos productos activos (en la tienda Y en el admin)
+    // A menos que el admin pida explícitamente ver los archivados
+    if (showArchived !== "true") {
+      whereProduct.is_active = true;
+    }
+
     if (name) whereProduct.name = { [Op.like]: `%${name}%` };
     if (minPrice || maxPrice) {
       whereProduct.price = {};
@@ -141,6 +151,7 @@ exports.getAllProducts = async (request, response, next) => {
         "is_new",
         "created_at",
         "color",
+        "is_active", // <-- Devolvemos el estado
         [
           sequelize.literal(`(
             SELECT SUM(stock) 
@@ -150,7 +161,7 @@ exports.getAllProducts = async (request, response, next) => {
           "totalStock",
         ],
       ],
-      where: whereProduct,
+      where: whereProduct, // <-- Este 'where' ya contiene el filtro is_active
       include: includes,
       order: isRatingSort ? undefined : [[sortBy, order]],
       limit: isRatingSort ? undefined : limit,
@@ -257,7 +268,7 @@ exports.getAllProducts = async (request, response, next) => {
   }
 };
 
-// --- getProductById (SIN CAMBIOS) ---
+// --- MODIFICADO: Añadido chequeo de 'is_active' ---
 exports.getProductById = async (request, response, next) => {
   try {
     const { id } = request.params;
@@ -276,6 +287,7 @@ exports.getProductById = async (request, response, next) => {
         "season",
         "is_new",
         "color",
+        "is_active", // <-- Devolvemos el estado
       ],
       include: [
         {
@@ -292,7 +304,11 @@ exports.getProductById = async (request, response, next) => {
       ],
     });
 
-    if (!product) {
+    // 3. AÑADIDO: Chequeo de 'is_active'
+    // No encontramos el producto, O está archivado
+    if (!product || !product.is_active) {
+      // (Si quisieras que el admin SÍ pueda verlos,
+      // añadirías: if (!product || (!product.is_active && req.user.role !== 'admin'))
       return response.status(404).json({ message: "Producto no encontrado" });
     }
 
@@ -309,6 +325,7 @@ exports.getProductById = async (request, response, next) => {
       where: {
         name: product.name,
         id: { [Op.ne]: id },
+        is_active: true, // <-- También filtramos hermanos
       },
       attributes: ["id", "color"],
       include: [
@@ -400,6 +417,7 @@ exports.createProduct = async (request, response, next) => {
         material,
         season: season || null,
         is_new,
+        is_active: true, // <-- Asegurarnos de que se crea como activo
         color: parsedVariants[0].color,
       },
       { transaction: t }
@@ -463,7 +481,7 @@ exports.createProduct = async (request, response, next) => {
   }
 };
 
-// --- ¡¡¡FUNCIÓN 'updateProduct' CORREGIDA!!! ---
+// --- updateProduct (SIN CAMBIOS) ---
 exports.updateProduct = async (request, response, next) => {
   const t = await sequelize.transaction();
   try {
@@ -486,7 +504,7 @@ exports.updateProduct = async (request, response, next) => {
       material,
       season,
       is_new,
-      variants, // <-- Viene como string JSON
+      variants,
     } = request.body;
 
     const parsedVariants = variants ? JSON.parse(variants) : undefined;
@@ -502,6 +520,8 @@ exports.updateProduct = async (request, response, next) => {
     product.material = material ?? product.material;
     product.season = season || product.season;
     product.is_new = is_new ?? product.is_new;
+    // Opcional: Permitir reactivar un producto al editarlo
+    // product.is_active = true;
 
     if (parsedVariants && parsedVariants.length > 0) {
       product.color = parsedVariants[0].color;
@@ -509,14 +529,8 @@ exports.updateProduct = async (request, response, next) => {
 
     await product.save({ transaction: t });
 
-    // --- ¡¡¡LÓGICA DE ACTUALIZACIÓN DE VARIANTES CORREGIDA!!! ---
     // 2. Sincronizamos las variantes (Método seguro: UPSERT)
     if (parsedVariants && parsedVariants.length > 0) {
-      // --- LÍNEA DESTRUIDA ELIMINADA ---
-      // Esta es la línea que causaba el error de FK
-      // await ProductVariantStock.destroy({ where: { productId: id }, transaction: t });
-
-      // Mapeamos los datos para el upsert
       const variantData = parsedVariants.map((v) => ({
         productId: id,
         color: v.color,
@@ -524,18 +538,12 @@ exports.updateProduct = async (request, response, next) => {
         stock: v.stock,
       }));
 
-      // Iteramos y hacemos 'upsert' para cada uno.
-      // Upsert usará el índice UNIQUE(productId, color, size)
-      // 1. Si existe, actualiza el 'stock'.
-      // 2. Si no existe, lo crea.
-      // Esto evita el error de FK, ya que NUNCA borramos una variante vendida.
       for (const variant of variantData) {
         await ProductVariantStock.upsert(variant, {
           transaction: t,
         });
       }
     }
-    // --- FIN DE LA CORRECCIÓN ---
 
     await t.commit();
 
@@ -568,19 +576,28 @@ exports.updateProduct = async (request, response, next) => {
   }
 };
 
-// --- deleteProduct (SIN CAMBIOS) ---
+// --- ¡¡¡FUNCIÓN 'deleteProduct' CORREGIDA!!! ---
 exports.deleteProduct = async (request, response, next) => {
   try {
     const { id } = request.params;
 
-    const images = await ProductImage.findAll({ where: { productId: id } });
+    // Ya no necesitamos buscar las imágenes para borrarlas
+    // const images = await ProductImage.findAll({ where: { productId: id } });
 
     const product = await Product.findByPk(id);
     if (!product) {
       return response.status(404).json({ message: "Producto no encontrado" });
     }
-    await product.destroy(); // 'onDelete: CASCADE' se encarga de las imágenes y variantes
 
+    // --- CAMBIO CLAVE: SOFT DELETE ---
+    // En lugar de 'destroy()', actualizamos 'is_active' a false
+    product.is_active = false;
+    await product.save();
+    // ---------------------------------
+
+    // Comentamos la eliminación de archivos físicos.
+    // Si archivamos un producto, queremos conservar sus imágenes por si se restaura.
+    /*
     if (images.length > 0) {
       images.forEach((image) => {
         try {
@@ -606,9 +623,10 @@ exports.deleteProduct = async (request, response, next) => {
         }
       });
     }
+    */
 
     response.json({
-      message: "Producto, variantes e imágenes eliminados",
+      message: "Producto eliminado correctamente (archivado)",
     });
   } catch (error) {
     console.error("Error en deleteProduct:", error);
@@ -616,7 +634,7 @@ exports.deleteProduct = async (request, response, next) => {
   }
 };
 
-// --- getRelatedProducts (SIN CAMBIOS) ---
+// --- MODIFICADO: Añadido filtro 'is_active' ---
 exports.getRelatedProducts = async (request, response, next) => {
   try {
     const { id } = request.params;
@@ -633,6 +651,7 @@ exports.getRelatedProducts = async (request, response, next) => {
       where: {
         category: currentProduct.category,
         id: { [Op.ne]: id },
+        is_active: true, // <-- 4. AÑADIDO: Solo mostrar productos relacionados activos
       },
       limit: 4,
       include: [
@@ -658,6 +677,7 @@ exports.getRelatedProducts = async (request, response, next) => {
         "is_new",
         "created_at",
         "color",
+        "is_active",
       ],
     });
 

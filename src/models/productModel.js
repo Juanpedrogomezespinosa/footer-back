@@ -60,6 +60,13 @@ const Product = sequelize.define(
       allowNull: false,
       defaultValue: true,
     },
+    // --- ¡¡¡AÑADIDO PARA BORRADO LÓGICO!!! ---
+    is_active: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: true, // Por defecto, todos los productos están activos
+    },
+    // ----------------------------------------
   },
   {
     tableName: "products",
