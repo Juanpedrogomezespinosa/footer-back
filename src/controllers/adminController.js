@@ -6,6 +6,7 @@ const {
   Product,
   Address,
   ProductImage,
+  ProductVariantStock, // <-- 1. ¡IMPORTADO!
 } = require("../models");
 const { sequelize } = require("../models");
 const { Op, fn, col, literal } = require("sequelize");
@@ -30,16 +31,20 @@ exports.getDashboardStats = async (req, res, next) => {
     const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
 
+    // --- 2. ¡LÓGICA DE INGRESOS CORREGIDA! ---
+    // Ahora contamos todos los estados que son ingresos (pagado, enviado, entregado)
+    const revenueStatuses = ["pagado", "enviado", "entregado"];
+
     const revenueCurrentMonth = await Order.sum("total", {
       where: {
-        status: "pagado",
+        status: { [Op.in]: revenueStatuses }, // <-- CORREGIDO
         createdAt: { [Op.gte]: startOfMonth },
       },
     });
 
     const revenueLastMonth = await Order.sum("total", {
       where: {
-        status: "pagado",
+        status: { [Op.in]: revenueStatuses }, // <-- CORREGIDO
         createdAt: {
           [Op.gte]: startOfLastMonth,
           [Op.lt]: startOfMonth,
@@ -83,6 +88,7 @@ exports.getDashboardStats = async (req, res, next) => {
       },
     });
 
+    // Esta lógica para "pending" (pendientes de envío) es correcta con 'pagado'
     const pendingToday = await Order.count({
       where: {
         status: "pagado",
@@ -134,13 +140,16 @@ exports.getDashboardStats = async (req, res, next) => {
  */
 exports.getSalesGraphData = async (req, res, next) => {
   try {
+    // --- LÓGICA DE INGRESOS CORREGIDA (igual que en stats) ---
+    const revenueStatuses = ["pagado", "enviado", "entregado"];
+
     const salesLast30Days = await Order.findAll({
       attributes: [
         [fn("DATE", col("createdAt")), "date"],
         [fn("SUM", col("total")), "totalSales"],
       ],
       where: {
-        status: "pagado",
+        status: { [Op.in]: revenueStatuses }, // <-- CORREGIDO
         createdAt: {
           [Op.gte]: literal("DATE_SUB(NOW(), INTERVAL 30 DAY)"),
         },
@@ -152,7 +161,7 @@ exports.getSalesGraphData = async (req, res, next) => {
 
     const salesPrevious30Days = await Order.sum("total", {
       where: {
-        status: "pagado",
+        status: { [Op.in]: revenueStatuses }, // <-- CORREGIDO
         createdAt: {
           [Op.gte]: literal("DATE_SUB(NOW(), INTERVAL 60 DAY)"),
           [Op.lt]: literal("DATE_SUB(NOW(), INTERVAL 30 DAY)"),
@@ -199,6 +208,7 @@ exports.getSalesGraphData = async (req, res, next) => {
 
 /**
  * [ADMIN] Obtiene TODOS los pedidos (paginados)
+ * (Esta función no tenía el bug, así que no se toca)
  */
 exports.getAllOrders = async (req, res, next) => {
   try {
@@ -240,6 +250,7 @@ exports.getAllOrders = async (req, res, next) => {
 
 /**
  * [ADMIN] Obtiene CUALQUIER pedido por su ID.
+ * --- 3. ¡CONSULTA 'INCLUDE' CORREGIDA! ---
  */
 exports.getAdminOrderById = async (req, res, next) => {
   try {
@@ -257,15 +268,23 @@ exports.getAdminOrderById = async (req, res, next) => {
           model: OrderItem,
           include: [
             {
-              model: Product,
-              attributes: ["id", "name"],
+              // Ruta correcta: OrderItem -> ProductVariantStock
+              model: ProductVariantStock,
               include: [
                 {
-                  model: ProductImage,
-                  as: "images",
-                  attributes: ["imageUrl"],
-                  where: { displayOrder: 0 },
-                  required: false,
+                  // Y ProductVariantStock -> Product
+                  model: Product,
+                  as: "Product", // <-- El alias que definimos en index.js
+                  attributes: ["id", "name"],
+                  include: [
+                    {
+                      model: ProductImage,
+                      as: "images",
+                      attributes: ["imageUrl"],
+                      where: { displayOrder: 0 },
+                      required: false,
+                    },
+                  ],
                 },
               ],
             },
@@ -280,26 +299,31 @@ exports.getAdminOrderById = async (req, res, next) => {
 
     const orderJson = order.toJSON();
 
+    // --- 4. ¡LÓGICA DE MAPEO DE DATOS CORREGIDA! ---
     const cleanedOrderItems = orderJson.OrderItems.map((item) => {
+      // La información ahora está anidada
+      const variant = item.ProductVariantStock;
+      const product = variant.Product;
+
       let mainImage = null;
-      if (
-        item.Product &&
-        item.Product.images &&
-        item.Product.images.length > 0
-      ) {
-        mainImage = item.Product.images[0].imageUrl;
+      if (product.images && product.images.length > 0) {
+        mainImage = product.images[0].imageUrl;
       }
 
+      // Creamos un nombre descriptivo
+      const productName = `${product.name} (${variant.color} / ${variant.size})`;
+
       const cleanedProduct = {
-        id: item.Product.id,
-        name: item.Product.name,
+        id: product.id,
+        name: productName,
         image: mainImage,
       };
 
-      return {
-        ...item,
-        Product: cleanedProduct,
-      };
+      // Limpiamos el objeto 'item' antes de devolverlo
+      delete item.ProductVariantStock; // Ya no necesitamos el objeto anidado
+      item.Product = cleanedProduct; // Reemplazamos 'Product' con nuestros datos limpios
+
+      return item;
     });
 
     const responsePayload = {
@@ -316,6 +340,7 @@ exports.getAdminOrderById = async (req, res, next) => {
 
 /**
  * [ADMIN] Actualiza el estado de un pedido.
+ * (Esta función no tenía el bug, así que no se toca)
  */
 exports.updateOrderStatus = async (req, res, next) => {
   try {
