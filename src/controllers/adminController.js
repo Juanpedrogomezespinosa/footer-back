@@ -208,7 +208,6 @@ exports.getSalesGraphData = async (req, res, next) => {
 
 /**
  * [ADMIN] Obtiene TODOS los pedidos (paginados)
- * (Esta función no tenía el bug, así que no se toca)
  */
 exports.getAllOrders = async (req, res, next) => {
   try {
@@ -250,7 +249,6 @@ exports.getAllOrders = async (req, res, next) => {
 
 /**
  * [ADMIN] Obtiene CUALQUIER pedido por su ID.
- * --- 3. ¡CONSULTA 'INCLUDE' CORREGIDA! ---
  */
 exports.getAdminOrderById = async (req, res, next) => {
   try {
@@ -268,13 +266,11 @@ exports.getAdminOrderById = async (req, res, next) => {
           model: OrderItem,
           include: [
             {
-              // Ruta correcta: OrderItem -> ProductVariantStock
               model: ProductVariantStock,
               include: [
                 {
-                  // Y ProductVariantStock -> Product
                   model: Product,
-                  as: "Product", // <-- El alias que definimos en index.js
+                  as: "Product",
                   attributes: ["id", "name"],
                   include: [
                     {
@@ -299,9 +295,7 @@ exports.getAdminOrderById = async (req, res, next) => {
 
     const orderJson = order.toJSON();
 
-    // --- 4. ¡LÓGICA DE MAPEO DE DATOS CORREGIDA! ---
     const cleanedOrderItems = orderJson.OrderItems.map((item) => {
-      // La información ahora está anidada
       const variant = item.ProductVariantStock;
       const product = variant.Product;
 
@@ -310,7 +304,6 @@ exports.getAdminOrderById = async (req, res, next) => {
         mainImage = product.images[0].imageUrl;
       }
 
-      // Creamos un nombre descriptivo
       const productName = `${product.name} (${variant.color} / ${variant.size})`;
 
       const cleanedProduct = {
@@ -319,9 +312,8 @@ exports.getAdminOrderById = async (req, res, next) => {
         image: mainImage,
       };
 
-      // Limpiamos el objeto 'item' antes de devolverlo
-      delete item.ProductVariantStock; // Ya no necesitamos el objeto anidado
-      item.Product = cleanedProduct; // Reemplazamos 'Product' con nuestros datos limpios
+      delete item.ProductVariantStock;
+      item.Product = cleanedProduct;
 
       return item;
     });
@@ -340,14 +332,12 @@ exports.getAdminOrderById = async (req, res, next) => {
 
 /**
  * [ADMIN] Actualiza el estado de un pedido.
- * (Esta función no tenía el bug, así que no se toca)
  */
 exports.updateOrderStatus = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
 
-    // Esta lista AHORA SÍ es correcta, pero el MODELO debe coincidir.
     const validStatuses = [
       "pendiente",
       "pagado",
@@ -369,8 +359,83 @@ exports.updateOrderStatus = async (req, res, next) => {
 
     res.json({ message: "Estado del pedido actualizado.", order });
   } catch (error) {
-    // Este catch es el que te está enviando el "Data truncated"
     console.error("Error en updateOrderStatus:", error);
-    next(error); // Pasa el error de Sequelize al errorHandler
+    next(error);
+  }
+};
+
+// --- ¡¡¡NUEVAS FUNCIONES DE USUARIO AÑADIDAS!!! ---
+
+/**
+ * [ADMIN] Obtiene TODOS los usuarios (con búsqueda)
+ */
+exports.getAdminAllUsers = async (req, res, next) => {
+  try {
+    const { search } = req.query; // <-- Parámetro de búsqueda
+
+    const whereClause = {};
+
+    if (search) {
+      whereClause[Op.or] = [
+        { username: { [Op.like]: `%${search}%` } },
+        { email: { [Op.like]: `%${search}%` } },
+        { lastName: { [Op.like]: `%${search}%` } },
+      ];
+    }
+
+    const users = await User.findAll({
+      where: whereClause,
+      attributes: [
+        "id",
+        "username",
+        "lastName",
+        "email",
+        "phone",
+        "avatarUrl",
+        "role",
+        "created_at",
+      ],
+      order: [["created_at", "DESC"]],
+    });
+
+    res.json(users);
+  } catch (error) {
+    console.error("Error en getAdminAllUsers:", error);
+    next(error);
+  }
+};
+
+/**
+ * [ADMIN] Obtiene un usuario por ID (con sus direcciones)
+ */
+exports.getAdminUserById = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const user = await User.findByPk(id, {
+      attributes: [
+        "id",
+        "username",
+        "lastName",
+        "email",
+        "phone",
+        "avatarUrl",
+        "role",
+        "created_at",
+      ],
+      include: [
+        {
+          model: Address, // <-- Incluimos las direcciones
+          as: "Addresses", // Usamos el alias que tengas en models/index.js
+        },
+      ],
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: "Usuario no encontrado" });
+    }
+    res.json(user);
+  } catch (error) {
+    console.error("Error en getAdminUserById:", error);
+    next(error);
   }
 };

@@ -13,8 +13,6 @@ const roleMiddleware = require("../middlewares/roleMiddleware");
 const upload = require("../middlewares/uploadMiddleware");
 
 // --- ¡IMPORTANTE! ---
-// Aplicamos la autenticación y el rol de 'admin'
-// a TODAS las rutas definidas en este fichero.
 router.use(authMiddleware);
 router.use(roleMiddleware("admin"));
 
@@ -25,14 +23,20 @@ router.get("/stats/sales-graph", adminController.getSalesGraphData);
 // --- Rutas de Gestión de Pedidos ---
 router.get("/orders", adminController.getAllOrders);
 router.get("/orders/:id", adminController.getAdminOrderById);
-// --- ¡NUEVA RUTA AÑADIDA! ---
 router.put("/orders/:id/status", adminController.updateOrderStatus);
 
 // --- Rutas de Gestión de Usuarios ---
+// ¡CORREGIDO! Apunta a userController para la búsqueda
 router.get("/users", userController.getAllUsers);
 router.delete("/users/:id", userController.deleteUser);
 
+// --- ¡¡¡NUEVA RUTA!!! ---
+// (Esta sí usa el adminController, donde pusimos la lógica)
+router.get("/users/:id", adminController.getAdminUserById);
+
 // --- Rutas de Gestión de Productos ---
+// (Estas rutas no existen en adminRoutes, están en productRoutes,
+// pero las dejo como estaban en tu archivo)
 router.get("/products", productController.getAllProducts);
 router.post(
   "/products",
