@@ -1,3 +1,5 @@
+// src/app.js
+
 require("dotenv").config();
 
 const express = require("express");
@@ -32,8 +34,8 @@ const orderRoutes = require("./routes/orderRoutes");
 const commentRoutes = require("./routes/commentRoutes");
 const ratingRoutes = require("./routes/ratingRoutes");
 const addressRoutes = require("./routes/addressRoutes");
-// --- 1. IMPORTAR LAS NUEVAS RUTAS DE ADMIN ---
 const adminRoutes = require("./routes/adminRoutes");
+const contactRoutes = require("./routes/contactRoutes"); // <-- 1. IMPORTAR NUEVA RUTA
 
 // 1. RUTAS API (MÁXIMA PRIORIDAD)
 app.use("/api/products", productRoutes);
@@ -44,9 +46,8 @@ app.use("/api/orders", orderRoutes);
 app.use("/api/comments", commentRoutes);
 app.use("/api/ratings", ratingRoutes);
 app.use("/api/addresses", addressRoutes);
-// --- 2. AÑADIR LAS RUTAS DE ADMIN ---
-// (La protección de rol ya está dentro de adminRoutes.js)
 app.use("/api/admin", adminRoutes);
+app.use("/api/contact", contactRoutes); // <-- 2. AÑADIR NUEVA RUTA (no necesita auth)
 
 // 2. Servir archivos estáticos (solo imágenes, después de las rutas API)
 app.use("/uploads", express.static(uploadsDirectory));
