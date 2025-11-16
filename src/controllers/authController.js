@@ -4,7 +4,7 @@ const jwt = require("jsonwebtoken");
 const config = require("../config/env");
 const { sendWelcomeEmail } = require("../services/emailService");
 
-// Función para generar un token JWT con expiración de 4 horas
+// Función para generar un token JWT con expiración de 24 horas
 const generateToken = (user) => {
   return jwt.sign(
     {
@@ -12,7 +12,7 @@ const generateToken = (user) => {
       role: user.role,
     },
     config.JWT_SECRET || config.jwtSecret || "defaultSecret",
-    { expiresIn: "4h" }
+    { expiresIn: "24h" }
   );
 };
 
