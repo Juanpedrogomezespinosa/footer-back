@@ -46,7 +46,6 @@ function loadTemplate(templateName, data) {
 async function sendEmail(to, subject, html, replyTo = null) {
   if (!EMAIL_USER || !EMAIL_PASS) {
     console.error("❌ No se puede enviar el correo: faltan credenciales.");
-    // No lanzamos un error aquí para no romper la app, pero sí en las funciones que lo usan
     return;
   }
 
@@ -58,7 +57,6 @@ async function sendEmail(to, subject, html, replyTo = null) {
       html,
     };
 
-    // Añadir replyTo si se proporciona
     if (replyTo) {
       mailOptions.replyTo = replyTo;
     }
@@ -67,7 +65,6 @@ async function sendEmail(to, subject, html, replyTo = null) {
     console.log(`📨 Correo enviado a ${to} | ID: ${info.messageId}`);
   } catch (error) {
     console.error("❌ Error al enviar el correo:", error.message || error);
-    // Relanzamos el error para que el controlador lo capture
     throw new Error("Error al enviar el correo.");
   }
 }
@@ -96,23 +93,13 @@ async function sendOrderConfirmationEmail(to, name, items, total) {
   await sendEmail(to, "Confirmación de tu Pedido - Footer 👟", html);
 }
 
-// --- NUEVAS FUNCIONES DE CONTACTO ---
-
 /**
  * Envía la consulta del formulario de contacto al email de soporte de la empresa.
  * @param {object} contactData - Datos del formulario
- * @param {string} contactData.name - Nombre del remitente
- * @param {string} contactData.fromEmail - Email del remitente
- * @param {string} contactData.subject - Asunto del mensaje
- * @param {string} contactData.message - Mensaje del remitente
  */
 async function sendContactInquiry({ name, fromEmail, subject, message }) {
-  // El email de destino es tu propio email de soporte (el mismo que EMAIL_USER o uno nuevo)
   const to = EMAIL_USER;
-
   const subjectToAdmin = `Nueva consulta de ${name}: ${subject}`;
-
-  // No usamos plantilla Handlebars aquí, es un email directo.
   const html = `
     <p>Has recibido una nueva consulta de contacto:</p>
     <ul>
@@ -126,7 +113,6 @@ async function sendContactInquiry({ name, fromEmail, subject, message }) {
   `;
 
   console.log(`🛠 Enviando consulta de contacto a ${to}`);
-  // Usamos 'fromEmail' como 'replyTo'
   await sendEmail(to, subjectToAdmin, html, fromEmail);
 }
 
@@ -136,16 +122,42 @@ async function sendContactInquiry({ name, fromEmail, subject, message }) {
  * @param {string} name - Nombre del usuario
  */
 async function sendContactConfirmation({ toEmail, name }) {
-  // Usamos una nueva plantilla: 'contact-confirmation.html'
   const html = loadTemplate("contact-confirmation.html", { name });
   console.log(`🛠 Enviando confirmación de contacto a ${toEmail}`);
   await sendEmail(toEmail, "Hemos recibido tu consulta - Footer 👟", html);
+}
+
+/**
+ * Envía una notificación de nuevo pedido al admin de la tienda
+ * @param {object} user - Objeto del usuario que compró
+ * @param {object} order - Objeto del pedido (incluye .Address)
+ * @param {Array} items - Lista de productos comprados
+ */
+async function sendNewOrderNotification(user, order, items) {
+  // El email de destino es el admin de la tienda
+  const to = EMAIL_USER;
+
+  // --- 👇 CAMBIO AQUÍ ---
+  // Extraemos la dirección del pedido y la pasamos a la plantilla
+  const html = loadTemplate("new-order-notification.html", {
+    user,
+    order,
+    items,
+    address: order.Address, // <-- Pasamos el objeto de dirección
+  });
+  // --- FIN DEL CAMBIO ---
+
+  console.log(
+    `🛠 Generando email de NOTIFICACIÓN DE ADMIN para pedido: ${order.id}`
+  );
+  await sendEmail(to, `¡Nuevo Pedido Recibido! - #${order.id}`, html);
 }
 
 module.exports = {
   sendEmail,
   sendWelcomeEmail,
   sendOrderConfirmationEmail,
-  sendContactInquiry, // <-- Nueva exportación
-  sendContactConfirmation, // <-- Nueva exportación
+  sendContactInquiry,
+  sendContactConfirmation,
+  sendNewOrderNotification,
 };

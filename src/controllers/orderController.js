@@ -1,8 +1,7 @@
 // src/controllers/orderController.js
 
-// --- Imports actualizados ---
 const {
-  sequelize, // Importar sequelize para transacciones
+  sequelize,
   User,
   Order,
   OrderItem,
@@ -10,23 +9,25 @@ const {
   CartItem,
   Address,
   ProductImage,
-  ProductVariantStock, // <-- ¡IMPORTANTE!
+  ProductVariantStock,
 } = require("../models");
-const { sendOrderConfirmationEmail } = require("../services/emailService");
+
+// --- 👇 CAMBIO: Importar la nueva función ---
+const {
+  sendOrderConfirmationEmail,
+  sendNewOrderNotification, // <-- Importamos la nueva función
+} = require("../services/emailService");
 const { createCheckoutSession } = require("../services/paymentService");
 const { frontendUrl } = require("../config/env");
 
 /**
- * --- ¡¡¡FUNCIÓN 'createOrder' TOTALMENTE REESCRITA (MÁS SEGURA Y FUNCIONAL)!!! ---
  * Crea una orden leyendo el carrito desde la BBDD, verifica stock,
  * resta el stock, y genera la sesión de pago.
  */
 const createOrder = async (req, res, next) => {
-  // 1. Iniciar una transacción
   const t = await sequelize.transaction();
   try {
     const userId = req.user.id;
-    // El único dato que necesitamos del body es la dirección
     const { addressId } = req.body;
 
     if (!addressId) {
@@ -36,7 +37,6 @@ const createOrder = async (req, res, next) => {
       });
     }
 
-    // 2. Validar la dirección
     const address = await Address.findOne({
       where: { id: addressId, userId: userId },
       transaction: t,
@@ -49,21 +49,20 @@ const createOrder = async (req, res, next) => {
       });
     }
 
-    // 3. Obtener los items del carrito (¡DESDE LA BBDD!)
     const cartItems = await CartItem.findAll({
       where: { userId },
       include: [
         {
-          model: ProductVariantStock, // Incluimos la variante
+          model: ProductVariantStock,
           include: [
             {
               model: Product,
-              as: "Product", // <-- ¡¡¡ESTA ES LA LÍNEA DE LA CORRECCIÓN!!!
+              as: "Product",
             },
           ],
         },
       ],
-      transaction: t, // Bloqueamos las filas
+      transaction: t,
     });
 
     if (!cartItems || cartItems.length === 0) {
@@ -71,16 +70,14 @@ const createOrder = async (req, res, next) => {
       return res.status(400).json({ message: "Tu carrito está vacío." });
     }
 
-    // 4. ¡¡VERIFICAR STOCK Y CALCULAR TOTAL!!
     let total = 0;
     const lineItems = [];
-    const itemsForEmail = [];
+    const itemsForEmail = []; // Lo usaremos para ambos emails
 
     for (const item of cartItems) {
       const variant = item.ProductVariantStock;
       const product = variant.Product;
 
-      // 4a. Verificar stock
       if (item.quantity > variant.stock) {
         await t.rollback();
         return res.status(400).json({
@@ -88,67 +85,61 @@ const createOrder = async (req, res, next) => {
         });
       }
 
-      // 4b. Calcular total (con el precio de la BBDD, no del frontend)
-      total += item.quantity * product.price; // Usamos el precio del producto padre
+      total += item.quantity * product.price;
 
-      // 4c. Preparar items para Stripe
       lineItems.push({
         price_data: {
           currency: "eur",
           product_data: {
             name: `${product.name} (${variant.color} / ${variant.size})`,
           },
-          unit_amount: Math.round(product.price * 100), // Precio en céntimos
+          unit_amount: Math.round(product.price * 100),
         },
         quantity: item.quantity,
       });
 
-      // 4d. Preparar items para el email
+      // ¡Corregido! Pasamos los datos que espera la plantilla
       itemsForEmail.push({
-        productName: `${product.name} (${variant.color} / ${variant.size})`,
+        name: product.name,
+        size: variant.size,
+        color: variant.color,
         quantity: item.quantity,
         price: product.price,
       });
     }
 
-    // 5. Crear el pedido
     const order = await Order.create(
       {
         userId,
         addressId,
-        status: "pendiente", // Se actualiza a "pagado" en getOrderById
-        total: total, // Total calculado en el backend
+        status: "pendiente",
+        total: total,
       },
       { transaction: t }
     );
 
-    // 6. ¡¡RESTAR STOCK Y MOVER ITEMS A 'order_items'!!
     for (const item of cartItems) {
       const variant = item.ProductVariantStock;
       const product = variant.Product;
 
-      // 6a. Crear el OrderItem
       await OrderItem.create(
         {
           orderId: order.id,
-          productVariantStockId: item.productVariantStockId, // <-- ¡NUEVA FK!
+          productVariantStockId: item.productVariantStockId,
           quantity: item.quantity,
-          price: product.price, // Guardamos el precio del momento
+          price: product.price,
         },
         { transaction: t }
       );
 
-      // 6b. ¡¡RESTAR STOCK!!
       await ProductVariantStock.update(
         { stock: variant.stock - item.quantity },
         { where: { id: variant.id }, transaction: t }
       );
     }
 
-    // 7. Limpiar el carrito
     await CartItem.destroy({ where: { userId: userId }, transaction: t });
 
-    // 8. Crear sesión de Stripe
     const successUrl = `${frontendUrl}/confirmation/${order.id}`;
     const cancelUrl = `${frontendUrl}/cart`;
 
@@ -158,7 +149,6 @@ const createOrder = async (req, res, next) => {
       cancelUrl
     );
 
-    // 9. Confirmar la transacción
     await t.commit();
 
     res.status(201).json({
@@ -167,7 +157,6 @@ const createOrder = async (req, res, next) => {
       checkoutUrl: session.url,
     });
   } catch (error) {
-    // Si algo falla, revertir todo
     await t.rollback();
     console.error("Error en createOrder:", error);
     next(error);
@@ -176,7 +165,6 @@ const createOrder = async (req, res, next) => {
 
 /**
  * Obtener historial de órdenes del usuario autenticado.
- * --- ¡MODIFICADO PARA LA NUEVA ESTRUCTURA! ---
  */
 const getOrderHistory = async (req, res, next) => {
   try {
@@ -188,12 +176,12 @@ const getOrderHistory = async (req, res, next) => {
           model: OrderItem,
           include: [
             {
-              model: ProductVariantStock, // <-- Incluir la variante
+              model: ProductVariantStock,
               include: [
                 {
-                  model: Product, // E incluir el producto padre
+                  model: Product,
                   as: "Product",
-                  include: [{ model: ProductImage, as: "images" }], // Y sus imágenes
+                  include: [{ model: ProductImage, as: "images" }],
                 },
               ],
             },
@@ -204,32 +192,21 @@ const getOrderHistory = async (req, res, next) => {
       order: [["createdAt", "DESC"]],
     });
 
-    // Mapear la respuesta para que sea fácil para el frontend
     const plainOrders = orders.map((order) => {
       const orderJson = order.toJSON();
       orderJson.OrderItems = orderJson.OrderItems.map((item) => {
-        // Creamos un objeto 'Product' falso para el frontend
         const variant = item.ProductVariantStock;
         const product = variant.Product;
-
-        // Añadimos los detalles de la variante al nombre
         product.name = `${product.name} (${variant.color} / ${variant.size})`;
-
-        // Encontrar la imagen principal
         if (product.images && product.images.length > 0) {
           product.images.sort((a, b) => a.displayOrder - b.displayOrder);
           product.image = product.images[0].imageUrl;
         } else {
           product.image = null;
         }
-
-        // Reemplazamos el objeto Product con el nuestro modificado
         item.Product = product;
-
-        // Limpiamos
         delete item.ProductVariantStock;
         delete item.Product.images;
-
         return item;
       });
       return orderJson;
@@ -244,7 +221,6 @@ const getOrderHistory = async (req, res, next) => {
 
 /**
  * Obtiene una orden específica por ID (para la página de confirmación).
- * --- ¡MODIFICADO PARA LA NUEVA ESTRUCTURA! ---
  */
 const getOrderById = async (req, res, next) => {
   try {
@@ -258,12 +234,12 @@ const getOrderById = async (req, res, next) => {
           model: OrderItem,
           include: [
             {
-              model: ProductVariantStock, // <-- Incluir la variante
+              model: ProductVariantStock,
               include: [
                 {
-                  model: Product, // E incluir el producto padre
+                  model: Product,
                   as: "Product",
-                  include: [{ model: ProductImage, as: "images" }], // Y sus imágenes
+                  include: [{ model: ProductImage, as: "images" }],
                 },
               ],
             },
@@ -278,17 +254,19 @@ const getOrderById = async (req, res, next) => {
       return res.status(404).json({ message: "Pedido no encontrado" });
     }
 
-    // Mapear la respuesta (igual que en getOrderHistory)
     const orderJson = order.toJSON();
-    const itemsForEmail = []; // Lo preparamos aquí
+    const itemsForEmail = [];
 
     orderJson.OrderItems = orderJson.OrderItems.map((item) => {
       const variant = item.ProductVariantStock;
       const product = variant.Product;
       const productName = `${product.name} (${variant.color} / ${variant.size})`;
 
+      // ¡Corregido! Pasamos los datos que espera la plantilla
       itemsForEmail.push({
-        productName: productName,
+        name: product.name, // Nombre base
+        size: variant.size,
+        color: variant.color,
         quantity: item.quantity,
         price: item.price,
       });
@@ -308,26 +286,44 @@ const getOrderById = async (req, res, next) => {
       return item;
     });
 
-    // --- Lógica de Email (ahora usa orderJson) ---
     if (order.status === "pendiente") {
       order.status = "pagado";
-      await order.save(); // Guardamos en la BBDD
+      await order.save();
 
+      // --- Email de Confirmación al Cliente ---
       try {
         console.log("📧 (Confirmación) Enviando email a", orderJson.User.email);
         await sendOrderConfirmationEmail(
           orderJson.User.email,
           orderJson.User.username,
-          itemsForEmail, // Usamos la lista que acabamos de crear
+          itemsForEmail,
           orderJson.total
         );
         console.log("✅ (Confirmación) Email enviado correctamente");
       } catch (emailError) {
         console.error("❌ Error enviando email de confirmación:", emailError);
       }
+
+      // --- 👇 CAMBIO: Notificación al ADMIN ---
+      try {
+        console.log("📧 (Admin) Enviando notificación de nuevo pedido...");
+        await sendNewOrderNotification(
+          orderJson.User, // Objeto User
+          orderJson, // Objeto Order
+          itemsForEmail // Array de Items
+        );
+        console.log("✅ (Admin) Email de notificación enviado correctamente");
+      } catch (adminEmailError) {
+        // No detenemos la respuesta al usuario por esto, solo lo registramos
+        console.error(
+          "❌ Error enviando email de notificación al admin:",
+          adminEmailError
+        );
+      }
+      // --- FIN DEL CAMBIO ---
     }
 
-    res.json(orderJson); // Devolvemos el pedido mapeado
+    res.json(orderJson);
   } catch (error) {
     console.error("Error en getOrderById:", error);
     next(error);
