@@ -134,24 +134,32 @@ async function sendContactConfirmation({ toEmail, name }) {
  * @param {Array} items - Lista de productos comprados
  */
 async function sendNewOrderNotification(user, order, items) {
-  // El email de destino es el admin de la tienda
   const to = EMAIL_USER;
-
-  // --- 👇 CAMBIO AQUÍ ---
-  // Extraemos la dirección del pedido y la pasamos a la plantilla
   const html = loadTemplate("new-order-notification.html", {
     user,
     order,
     items,
-    address: order.Address, // <-- Pasamos el objeto de dirección
+    address: order.Address,
   });
-  // --- FIN DEL CAMBIO ---
-
   console.log(
     `🛠 Generando email de NOTIFICACIÓN DE ADMIN para pedido: ${order.id}`
   );
   await sendEmail(to, `¡Nuevo Pedido Recibido! - #${order.id}`, html);
 }
+
+// --- 👇 NUEVA FUNCIÓN AÑADIDA ---
+/**
+ * Envía un correo para restablecer la contraseña
+ * @param {string} toEmail - Email del destinatario
+ * @param {string} name - Nombre del usuario
+ * @param {string} resetLink - Enlace para restablecer la contraseña
+ */
+async function sendPasswordResetEmail(toEmail, name, resetLink) {
+  const html = loadTemplate("reset-password.html", { name, resetLink });
+  console.log(`🛠 Generando email de reseteo de contraseña para: ${toEmail}`);
+  await sendEmail(toEmail, "Restablece tu contraseña de Footer 👟", html);
+}
+// --- FIN DE NUEVA FUNCIÓN ---
 
 module.exports = {
   sendEmail,
@@ -160,4 +168,5 @@ module.exports = {
   sendContactInquiry,
   sendContactConfirmation,
   sendNewOrderNotification,
+  sendPasswordResetEmail, // <-- Exportamos la nueva función
 };
