@@ -5,48 +5,54 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const config = require("../config/env");
 
-// --- 👇 CAMBIO: Importar la nueva función de email y la URL del frontend ---
 const {
   sendWelcomeEmail,
-  sendPasswordResetEmail, // <-- Importamos la nueva función
+  sendPasswordResetEmail,
 } = require("../services/emailService");
-const { frontendUrl } = require("../config/env"); // <-- Importamos la URL del frontend
-// --- FIN DEL CAMBIO ---
+const { frontendUrl } = require("../config/env");
 
-// Función para generar un token JWT de autenticación (larga duración)
-const generateToken = (user) => {
+/**
+ * Función para generar un token JWT de autenticación (larga duración)
+ */
+exports.generateToken = (user) => {
+  // --- 👇 ¡¡AQUÍ ESTÁ LA CORRECCIÓN!! ---
+  // El payload debe usar 'userId' para ser consistente
+  // con el resto de tu aplicación (como el authMiddleware)
+  const payload = {
+    userId: user.id, // <-- Cambiado de 'id' a 'userId'
+    username: user.username,
+    email: user.email,
+    role: user.role,
+    avatarUrl: user.avatarUrl,
+    lastName: user.lastName,
+    phone: user.phone,
+  };
+  // --- FIN DE LA CORRECCIÓN ---
+
   return jwt.sign(
-    {
-      userId: user.id,
-      role: user.role,
-    },
+    payload,
     config.JWT_SECRET || config.jwtSecret || "defaultSecret",
     { expiresIn: "24h" }
   );
 };
 
-// --- 👇 NUEVA FUNCIÓN AÑADIDA ---
 /**
  * Genera un token JWT de CORTA duración (15 min)
  * Específico para restablecer la contraseña
  */
 const generatePasswordResetToken = (user) => {
-  // Usamos el MISMO secreto, pero un payload y expiración diferentes
   return jwt.sign(
     {
       userId: user.id,
-      // Añadimos un 'scope' para asegurar que este token solo sirva para esto
       scope: "password_reset",
     },
     config.JWT_SECRET || config.jwtSecret || "defaultSecret",
-    { expiresIn: "15m" } // <-- Caduca en 15 minutos
+    { expiresIn: "15m" }
   );
 };
-// --- FIN DE NUEVA FUNCIÓN ---
 
 // Registro de usuario nuevo
 exports.register = async (req, res, next) => {
-  // ... (Tu código de registro no cambia)
   try {
     const { username, email, password, role } = req.body;
 
@@ -71,9 +77,10 @@ exports.register = async (req, res, next) => {
       lastName: null,
       phone: null,
       avatarUrl: null,
+      googleId: null,
     });
 
-    const token = generateToken(user);
+    const token = exports.generateToken(user); // Ahora genera el token correcto
 
     try {
       await sendWelcomeEmail(email, username);
@@ -101,14 +108,12 @@ exports.register = async (req, res, next) => {
         message: "Este correo ya está registrado.",
       });
     }
-    // Pasamos el error al manejador global
     next(error);
   }
 };
 
 // Login de usuario existente
 exports.login = async (req, res, next) => {
-  // ... (Tu código de login no cambia)
   try {
     const { email, password } = req.body;
 
@@ -118,13 +123,20 @@ exports.login = async (req, res, next) => {
       return res.status(401).json({ message: "Credenciales inválidas" });
     }
 
+    if (!user.password) {
+      return res.status(401).json({
+        message:
+          "Parece que te registraste con Google. Por favor, usa ese método.",
+      });
+    }
+
     const isValidPassword = await bcrypt.compare(password, user.password);
 
     if (!isValidPassword) {
       return res.status(401).json({ message: "Credenciales inválidas" });
     }
 
-    const token = generateToken(user);
+    const token = exports.generateToken(user); // Ahora genera el token correcto
 
     return res.json({
       message: "Inicio de sesión exitoso",
@@ -145,11 +157,8 @@ exports.login = async (req, res, next) => {
   }
 };
 
-// --- 👇 NUEVA FUNCIÓN AÑADIDA ---
-/**
- * Paso 1: El usuario olvida la contraseña y pide un enlace.
- * Recibe un email y genera un token de 15 min.
- */
+// --- (forgotPassword y resetPassword no cambian) ---
+
 exports.forgotPassword = async (req, res, next) => {
   try {
     const { email } = req.body;
@@ -160,9 +169,6 @@ exports.forgotPassword = async (req, res, next) => {
 
     const user = await User.findOne({ where: { email } });
 
-    // ¡Buena práctica de seguridad!
-    // Nunca confirmes si el email existe o no.
-    // Simplemente responde OK para prevenir enumeración de usuarios.
     if (!user) {
       return res.status(200).json({
         message:
@@ -170,14 +176,9 @@ exports.forgotPassword = async (req, res, next) => {
       });
     }
 
-    // Generar el token de reseteo (15 min)
     const resetToken = generatePasswordResetToken(user);
-
-    // Generar el enlace que irá en el email
-    // (Asegúrate de tener FRONTEND_URL en tu .env)
     const resetLink = `${frontendUrl}/reset-password/${resetToken}`;
 
-    // Enviar el email
     try {
       await sendPasswordResetEmail(user.email, user.username, resetLink);
     } catch (emailError) {
@@ -185,7 +186,6 @@ exports.forgotPassword = async (req, res, next) => {
         "Error crítico al enviar email de reseteo:",
         emailError.message
       );
-      // Si el email falla, le devolvemos un error al usuario.
       return next(
         new Error(
           "No se pudo enviar el correo de restablecimiento. Inténtalo de nuevo."
@@ -193,7 +193,6 @@ exports.forgotPassword = async (req, res, next) => {
       );
     }
 
-    // Responder al usuario
     return res.status(200).json({
       message:
         "Si existe una cuenta con este correo, se ha enviado un enlace para restablecer la contraseña.",
@@ -204,11 +203,6 @@ exports.forgotPassword = async (req, res, next) => {
   }
 };
 
-// --- 👇 NUEVA FUNCIÓN AÑADIDA ---
-/**
- * Paso 2: El usuario hace clic en el enlace del email,
- * introduce la nueva contraseña y la envía junto con el token.
- */
 exports.resetPassword = async (req, res, next) => {
   try {
     const { token, newPassword } = req.body;
@@ -219,7 +213,6 @@ exports.resetPassword = async (req, res, next) => {
         .json({ message: "Faltan el token y la nueva contraseña." });
     }
 
-    // 1. Verificar el token
     let decodedPayload;
     try {
       decodedPayload = jwt.verify(
@@ -227,21 +220,17 @@ exports.resetPassword = async (req, res, next) => {
         config.JWT_SECRET || config.jwtSecret || "defaultSecret"
       );
     } catch (error) {
-      // Esto captura tokens expirados o malformados
       return res
         .status(400)
         .json({ message: "El enlace es inválido o ha caducado." });
     }
 
-    // 2. (Opcional pero recomendado) Verificar el 'scope'
     if (decodedPayload.scope !== "password_reset") {
       return res.status(400).json({ message: "Token inválido." });
     }
 
-    // 3. Hashear la nueva contraseña
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-    // 4. Actualizar la contraseña en la BBDD
     const [rowsAffected] = await User.update(
       { password: hashedPassword },
       { where: { id: decodedPayload.userId } }

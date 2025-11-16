@@ -1,3 +1,5 @@
+// src/models/userModel.js
+
 const { DataTypes } = require("sequelize");
 const sequelize = require("../config/db");
 
@@ -24,13 +26,12 @@ const User = sequelize.define(
     },
     password: {
       type: DataTypes.STRING(255),
-      allowNull: false,
+      allowNull: true, // <-- MODIFICADO (antes era 'false')
     },
     phone: {
       type: DataTypes.STRING(20),
       allowNull: true,
     },
-    // 🆕 Nuevo campo para la URL de la imagen de perfil
     avatarUrl: {
       type: DataTypes.STRING(255),
       allowNull: true,
@@ -40,6 +41,13 @@ const User = sequelize.define(
       allowNull: false,
       defaultValue: "client",
     },
+    // --- 👇 NUEVO CAMPO AÑADIDO ---
+    googleId: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+      unique: true,
+    },
+    // --- FIN DE NUEVO CAMPO ---
   },
   {
     tableName: "users",
