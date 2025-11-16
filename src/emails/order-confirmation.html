@@ -3,97 +3,111 @@
   <head>
     <meta charset="UTF-8" />
     <title>Pedido Confirmado - Footer 👟</title>
+    <!-- Favicon (Solo para algunos clientes web, no funcionará en la mayoría) -->
+    <link
+      rel="icon"
+      type="image/x-icon"
+      href="http://localhost:4200/favicon.ico"
+    />
     <style>
-      @import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap");
-
       body {
-        font-family: "Poppins", sans-serif;
-        background-color: #f9fafb;
+        font-family: "Poppins", Arial, sans-serif;
         margin: 0;
         padding: 0;
-        color: #1f2937; /* gris oscuro */
+        background-color: #f9fafb;
       }
-
       .container {
-        max-width: 650px;
+        width: 90%;
+        max-width: 600px;
+        margin: 20px auto;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        overflow: hidden;
         background: #ffffff;
-        margin: 30px auto;
-        padding: 25px 30px;
-        border-radius: 12px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
       }
-
       .header {
+        background-color: #111827; /* Tu color 'primary' */
+        color: #ffffff;
+        padding: 25px 30px;
         text-align: center;
-        padding-bottom: 20px;
       }
-
       .header svg {
-        width: 48px;
-        height: 48px;
-        color: #111827; /* color primario */
+        width: 40px;
+        height: 40px;
+        color: #ff5a1f; /* Tu color 'secondary' (Naranja) */
+        vertical-align: middle;
+        margin-right: 12px;
       }
-
       .header h1 {
-        margin: 12px 0 0 0;
+        display: inline-block; /* Alineación */
+        margin: 0;
         font-size: 28px;
-        color: #111827;
+        color: #ffffff;
         font-weight: 700;
+        vertical-align: middle;
       }
-
-      h2 {
+      .content {
+        padding: 30px;
+      }
+      .content h2 {
         color: #111827;
-        font-weight: 700;
         margin-top: 0;
       }
-
-      p {
-        font-size: 16px;
+      .content p {
         line-height: 1.6;
+        color: #333;
+        font-size: 16px;
         margin: 12px 0;
       }
-
       .order-details {
         margin-top: 20px;
         border-collapse: collapse;
         width: 100%;
       }
-
       .order-details th,
       .order-details td {
         border: 1px solid #e5e7eb; /* gris claro */
         padding: 10px 12px;
         text-align: left;
       }
-
       .order-details th {
         background-color: #f3f4f6; /* gris muy claro */
         font-weight: 600;
+        color: #111827;
       }
-
-      .btn {
+      .total {
+        margin-top: 15px;
+        font-size: 18px;
+        font-weight: bold;
+        color: #111827;
+      }
+      .button-container {
+        text-align: center;
+        margin-top: 25px;
+      }
+      .button {
         display: inline-block;
-        background-color: #ff5a1f; /* naranja secundario */
-        color: white !important;
         padding: 12px 28px;
-        border-radius: 8px;
+        background-color: #ff5a1f; /* Tu color 'secondary' */
+        color: #ffffff;
         text-decoration: none;
-        font-weight: 700;
-        margin-top: 20px;
+        border-radius: 5px;
+        font-weight: bold;
       }
-
       .footer {
         font-size: 13px;
-        color: #6b7280; /* gris medio */
+        color: #777;
         text-align: center;
-        margin-top: 30px;
+        margin-top: 20px;
+        padding: 20px 30px;
+        background-color: #f9f9f9;
       }
     </style>
   </head>
   <body>
     <div class="container">
       <div class="header">
-        <!-- SVG de tu logo -->
+        <!-- SVG logo -->
         <svg
           fill="currentColor"
           viewBox="0 0 48 48"
@@ -107,48 +121,52 @@
         </svg>
         <h1>Footer</h1>
       </div>
+      <div class="content">
+        <h2>¡Pedido Confirmado!</h2>
+        <p>Hola {{name}},</p>
+        <p>
+          Gracias por tu compra en <strong>Footer 👟</strong>. Hemos recibido tu
+          pedido y está siendo procesado.
+        </p>
 
-      <h2>¡Pedido Confirmado!</h2>
-      <p>Hola {{name}},</p>
-      <p>
-        Gracias por tu compra en <strong>Footer 👟</strong>. Hemos recibido tu
-        pedido y está siendo procesado.
-      </p>
+        <table class="order-details">
+          <thead>
+            <tr>
+              <th>Producto</th>
+              <th>Cantidad</th>
+              <th>Precio</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{#each items}}
+            <tr>
+              <!-- Asumo que el 'productName' ya incluye talla y color -->
+              <td>{{this.productName}}</td>
+              <td>{{this.quantity}}</td>
+              <td>€{{this.price}}</td>
+            </tr>
+            {{/each}}
+          </tbody>
+        </table>
 
-      <table class="order-details">
-        <thead>
-          <tr>
-            <th>Producto</th>
-            <th>Cantidad</th>
-            <th>Precio</th>
-          </tr>
-        </thead>
-        <tbody>
-          {{#each items}}
-          <tr>
-            <td>{{productName}}</td>
-            <td>{{quantity}}</td>
-            <td>€{{price}}</td>
-          </tr>
-          {{/each}}
-        </tbody>
-      </table>
+        <p class="total">Total: <strong>€{{total}}</strong></p>
 
-      <p>Total: <strong>€{{total}}</strong></p>
-
-      <div style="text-align: center">
-        <a
-          href="http://localhost:4200/profile/orders"
-          class="btn"
-          target="_blank"
-          rel="noopener"
-          >Ver mis pedidos</a
-        >
+        <div class="button-container">
+          <a
+            href="http://localhost:4200/profile/orders"
+            class="button"
+            target="_blank"
+            rel="noopener"
+            style="color: #ffffff"
+            >Ver mis pedidos</a
+          >
+        </div>
       </div>
-
-      <p class="footer">
-        Si tienes alguna duda, responde a este correo o visita nuestra web.
-      </p>
+      <div class="footer">
+        <p>
+          Si tienes alguna duda, responde a este correo o visita nuestra web.
+        </p>
+      </div>
     </div>
   </body>
 </html>

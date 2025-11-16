@@ -3,12 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Confirmación de Contacto</title>
+    <title>Confirmación de Contacto - Footer</title>
+    <!-- Favicon (Solo para algunos clientes web, no funcionará en la mayoría) -->
+    <link
+      rel="icon"
+      type="image/x-icon"
+      href="http://localhost:4200/favicon.ico"
+    />
     <style>
       body {
         font-family: "Poppins", Arial, sans-serif;
         margin: 0;
         padding: 0;
+        background-color: #f9fafb;
       }
       .container {
         width: 90%;
@@ -17,43 +24,73 @@
         border: 1px solid #ddd;
         border-radius: 8px;
         overflow: hidden;
+        background: #ffffff;
       }
       .header {
-        background-color: #111827;
+        background-color: #111827; /* Tu color 'primary' */
         color: #ffffff;
-        padding: 20px;
+        padding: 25px 30px;
         text-align: center;
       }
+      .header svg {
+        width: 40px;
+        height: 40px;
+        color: #ff5a1f; /* Tu color 'secondary' (Naranja) */
+        vertical-align: middle;
+        margin-right: 12px;
+      }
       .header h1 {
+        display: inline-block; /* Alineación */
         margin: 0;
+        font-size: 28px;
+        color: #ffffff;
+        font-weight: 700;
+        vertical-align: middle;
       }
       .content {
         padding: 30px;
       }
+      .content h2 {
+        color: #111827;
+        margin-top: 0;
+      }
       .content p {
         line-height: 1.6;
         color: #333;
+        font-size: 16px;
+        margin: 12px 0;
       }
       .footer {
-        background-color: #f9f9f9;
+        font-size: 13px;
         color: #777;
-        padding: 20px;
         text-align: center;
-        font-size: 12px;
+        margin-top: 20px;
+        padding: 20px 30px;
+        background-color: #f9f9f9;
       }
     </style>
   </head>
   <body>
     <div class="container">
       <div class="header">
-        <h1>Footer 👟</h1>
+        <!-- SVG logo -->
+        <svg
+          fill="currentColor"
+          viewBox="0 0 48 48"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            clip-rule="evenodd"
+            fill-rule="evenodd"
+            d="M24 4H6V17.3333V30.6667H24V44H42V30.6667V17.3333H24V4Z"
+          />
+        </svg>
+        <h1>Footer</h1>
       </div>
       <div class="content">
-        <p>Hola, {{name}},</p>
-        <p>
-          ¡Hemos recibido tu mensaje! Gracias por ponerte en contacto con
-          nosotros.
-        </p>
+        <h2>¡Hemos recibido tu mensaje!</h2>
+        <p>Hola {{name}},</p>
+        <p>Gracias por ponerte en contacto con nosotros.</p>
         <p>Nuestro equipo lo revisará y te responderá lo antes posible.</p>
         <br />
         <p>Atentamente,</p>

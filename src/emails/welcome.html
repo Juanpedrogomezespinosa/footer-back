@@ -2,116 +2,129 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <title>Bienvenido a Footer 👟</title>
+    <title>¡Bienvenido a Footer!</title>
+    <!-- Favicon (Solo para algunos clientes web, no funcionará en la mayoría) -->
+    <link
+      rel="icon"
+      type="image/x-icon"
+      href="http://localhost:4200/favicon.ico"
+    />
     <style>
-      @import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap");
-
       body {
-        font-family: "Poppins", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-        background-color: #f9fafb;
+        font-family: "Poppins", Arial, sans-serif;
         margin: 0;
         padding: 0;
-        color: #333;
+        background-color: #f9fafb;
       }
-
       .container {
+        width: 90%;
         max-width: 600px;
-        background: white;
-        margin: 30px auto;
-        padding: 25px 30px;
-        border-radius: 12px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        margin: 20px auto;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        overflow: hidden;
+        background: #ffffff;
       }
-
       .header {
+        background-color: #111827; /* Tu color 'primary' */
+        color: #ffffff;
+        padding: 25px 30px;
         text-align: center;
-        padding-bottom: 20px;
       }
-
-      .logo {
-        width: 48px;
-        height: 48px;
-        color: #0d9488;
+      .header svg {
+        width: 40px; /* Tamaño ajustado */
+        height: 40px;
+        color: #ff5a1f; /* Tu color 'secondary' (Naranja) */
+        vertical-align: middle;
+        margin-right: 12px;
       }
-
-      h1 {
-        color: #0d9488;
+      .header h1 {
+        display: inline-block; /* Alineación */
+        margin: 0;
+        font-size: 28px;
+        color: #ffffff;
         font-weight: 700;
-        margin-top: 10px;
+        vertical-align: middle;
       }
-
-      p {
-        font-size: 16px;
+      .content {
+        padding: 30px;
+      }
+      .content h2 {
+        color: #111827;
+        margin-top: 0;
+      }
+      .content p {
         line-height: 1.6;
+        color: #333;
+        font-size: 16px;
         margin: 12px 0;
       }
-
-      .btn {
-        display: inline-block;
-        background-color: #0d9488;
-        color: white !important;
-        padding: 12px 28px;
-        border-radius: 8px;
-        text-decoration: none;
-        font-weight: 600;
+      .button-container {
+        text-align: center;
         margin-top: 25px;
       }
-
-      .btn:hover {
-        background-color: #0b7e73;
+      .button {
+        display: inline-block;
+        padding: 12px 28px;
+        background-color: #ff5a1f; /* Tu color 'secondary' */
+        color: #ffffff;
+        text-decoration: none;
+        border-radius: 5px;
+        font-weight: bold;
       }
-
       .footer {
         font-size: 13px;
         color: #777;
         text-align: center;
-        margin-top: 40px;
+        margin-top: 20px;
+        padding: 20px 30px;
+        background-color: #f9f9f9;
       }
     </style>
   </head>
   <body>
     <div class="container">
       <div class="header">
-        <!-- SVG logo inline para mantener coherencia visual -->
+        <!-- SVG logo -->
         <svg
-          class="logo"
-          fill="none"
+          fill="currentColor"
           viewBox="0 0 48 48"
           xmlns="http://www.w3.org/2000/svg"
         >
           <path
             clip-rule="evenodd"
-            d="M24 4H6V17.3333V30.6667H24V44H42V30.6667V17.3333H24V4Z"
-            fill="currentColor"
             fill-rule="evenodd"
-          ></path>
+            d="M24 4H6V17.3333V30.6667H24V44H42V30.6667V17.3333H24V4Z"
+          />
         </svg>
-        <h1>¡Bienvenido a Footer!</h1>
+        <h1>Footer</h1>
       </div>
+      <div class="content">
+        <h2>¡Bienvenido!</h2>
+        <p>Hola {{name}},</p>
+        <p>
+          Gracias por registrarte en <strong>Footer 👟</strong>. Estamos
+          encantados de tenerte con nosotros.
+        </p>
+        <p>
+          Explora nuestras colecciones y disfruta de las mejores marcas al mejor
+          precio.
+        </p>
 
-      <p>Hola {{name}},</p>
-      <p>
-        Gracias por registrarte en <strong>Footer 👟</strong>. Estamos
-        encantados de tenerte con nosotros.
-      </p>
-      <p>
-        Explora nuestras zapatillas y disfruta de las mejores marcas al mejor
-        precio.
-      </p>
-
-      <div style="text-align: center">
-        <a
-          href="http://localhost:4200/login"
-          class="btn"
-          target="_blank"
-          rel="noopener"
-          >Iniciar sesión</a
-        >
+        <div class="button-container">
+          <a
+            href="http://localhost:4200/login"
+            class="button"
+            target="_blank"
+            rel="noopener"
+            style="color: #ffffff"
+            >Iniciar sesión</a
+          >
+        </div>
       </div>
-
-      <p class="footer">
-        Si no te registraste en Footer, puedes ignorar este mensaje.
-      </p>
+      <div class="footer">
+        <p>Si no te registraste en Footer, puedes ignorar este mensaje.</p>
+      </div>
     </div>
   </body>
 </html>

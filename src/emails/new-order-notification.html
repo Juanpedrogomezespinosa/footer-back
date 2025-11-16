@@ -3,12 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Nuevo Pedido Recibido</title>
+    <title>¡Nuevo Pedido Recibido!</title>
+    <!-- Favicon (Solo para algunos clientes web, no funcionará en la mayoría) -->
+    <link
+      rel="icon"
+      type="image/x-icon"
+      href="http://localhost:4200/favicon.ico"
+    />
     <style>
       body {
         font-family: "Poppins", Arial, sans-serif;
         margin: 0;
         padding: 0;
+        background-color: #f9fafb;
       }
       .container {
         width: 90%;
@@ -17,16 +24,28 @@
         border: 1px solid #ddd;
         border-radius: 8px;
         overflow: hidden;
+        background: #ffffff;
       }
       .header {
-        background-color: #111827;
+        background-color: #111827; /* Tu color 'primary' */
         color: #ffffff;
-        padding: 20px;
+        padding: 25px 30px;
         text-align: center;
       }
+      .header svg {
+        width: 40px;
+        height: 40px;
+        color: #ff5a1f; /* Tu color 'secondary' (Naranja) */
+        vertical-align: middle;
+        margin-right: 12px;
+      }
       .header h1 {
+        display: inline-block; /* Alineación */
         margin: 0;
-        font-size: 24px;
+        font-size: 28px;
+        color: #ffffff;
+        font-weight: 700;
+        vertical-align: middle;
       }
       .content {
         padding: 30px;
@@ -38,15 +57,18 @@
       .content p {
         line-height: 1.6;
         color: #333;
+        font-size: 16px;
+        margin: 12px 0;
       }
       .order-details,
       .address-details {
         margin-top: 15px;
       }
       .address-details {
-        padding: 10px;
+        padding: 10px 15px;
         background-color: #f9f9f9;
         border-radius: 5px;
+        border: 1px solid #e5e7eb;
       }
       .address-details p {
         margin: 5px 0;
@@ -59,11 +81,11 @@
       .products-table th,
       .products-table td {
         border: 1px solid #ddd;
-        padding: 8px;
+        padding: 8px 12px;
         text-align: left;
       }
       .products-table th {
-        background-color: #f9f9f9;
+        background-color: #f3f4f6;
       }
       .footer {
         background-color: #f9f9f9;
@@ -76,7 +98,7 @@
         display: inline-block;
         padding: 12px 20px;
         margin-top: 20px;
-        background-color: #ff5a1f;
+        background-color: #ff5a1f; /* Tu color 'secondary' */
         color: #ffffff;
         text-decoration: none;
         border-radius: 5px;
@@ -87,11 +109,23 @@
   <body>
     <div class="container">
       <div class="header">
-        <h1>¡Nuevo Pedido Recibido!</h1>
+        <!-- SVG logo -->
+        <svg
+          fill="currentColor"
+          viewBox="0 0 48 48"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            clip-rule="evenodd"
+            fill-rule="evenodd"
+            d="M24 4H6V17.3333V30.6667H24V44H42V30.6667V17.3333H24V4Z"
+          />
+        </svg>
+        <h1>Footer</h1>
       </div>
       <div class="content">
-        <h2>Pedido: #{{order.id}}</h2>
-        <p>Has recibido un nuevo pedido en Footer.</p>
+        <h2>¡Nuevo Pedido Recibido! (#{{order.id}})</h2>
+        <p>Has recibido un nuevo pedido en la tienda.</p>
 
         <div class="order-details">
           <p><strong>Cliente:</strong> {{user.username}} ({{user.email}})</p>
@@ -99,17 +133,14 @@
           <p><strong>Estado:</strong> {{order.status}}</p>
         </div>
 
-        <!-- --- 👇 BLOQUE AÑADIDO --- -->
         <h3 style="margin-top: 25px">Dirección de Envío:</h3>
         <div class="address-details">
-          <!-- Asumo estos nombres de campos de tu AddressModel -->
           <p><strong>{{address.fullName}}</strong></p>
           <p>{{address.street}}</p>
           <p>{{address.city}}, {{address.state}} {{address.postalCode}}</p>
           <p>{{address.country}}</p>
           <p><strong>Teléfono:</strong> {{address.phone}}</p>
         </div>
-        <!-- --- FIN DEL BLOQUE --- -->
 
         <h3 style="margin-top: 25px">Productos Comprados:</h3>
         <table class="products-table">
