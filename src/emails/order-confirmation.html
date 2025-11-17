@@ -3,7 +3,6 @@
   <head>
     <meta charset="UTF-8" />
     <title>Pedido Confirmado - Footer 👟</title>
-    <!-- Favicon (Solo para algunos clientes web, no funcionará en la mayoría) -->
     <link
       rel="icon"
       type="image/x-icon"
@@ -107,7 +106,6 @@
   <body>
     <div class="container">
       <div class="header">
-        <!-- SVG logo -->
         <svg
           fill="currentColor"
           viewBox="0 0 48 48"
@@ -140,8 +138,9 @@
           <tbody>
             {{#each items}}
             <tr>
-              <!-- Asumo que el 'productName' ya incluye talla y color -->
-              <td>{{this.productName}}</td>
+              <td>
+                {{this.name}} (Talla: {{this.size}}, Color: {{this.color}})
+              </td>
               <td>{{this.quantity}}</td>
               <td>€{{this.price}}</td>
             </tr>

@@ -325,7 +325,7 @@ exports.getProductById = async (request, response, next) => {
       where: {
         name: product.name,
         id: { [Op.ne]: id },
-        is_active: true, // <-- También filtramos hermanos
+        is_active: true,
       },
       attributes: ["id", "color"],
       include: [
