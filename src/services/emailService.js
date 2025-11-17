@@ -85,10 +85,17 @@ async function sendWelcomeEmail(to, name) {
  * @param {string} to - Dirección de correo del destinatario
  * @param {string} name - Nombre del usuario
  * @param {Array} items - Lista de productos comprados
- * @param {number} total - Total de la compra
+ * @param {object} summaryData - Objeto con {total, subtotal, tax, shippingCost}
  */
-async function sendOrderConfirmationEmail(to, name, items, total) {
-  const html = loadTemplate("order-confirmation.html", { name, items, total });
+async function sendOrderConfirmationEmail(to, name, items, summaryData) {
+  const html = loadTemplate("order-confirmation.html", {
+    name,
+    items,
+    total: summaryData.total,
+    subtotal: summaryData.subtotal,
+    tax: summaryData.tax,
+    shippingCost: summaryData.shippingCost,
+  });
   console.log("🛠 Generando email de confirmación de pedido para:", name);
   await sendEmail(to, "Confirmación de tu Pedido - Footer 👟", html);
 }
@@ -132,14 +139,20 @@ async function sendContactConfirmation({ toEmail, name }) {
  * @param {object} user - Objeto del usuario que compró
  * @param {object} order - Objeto del pedido (incluye .Address)
  * @param {Array} items - Lista de productos comprados
+ * @param {object} summaryData - (Opcional) Objeto con {total, subtotal, tax, shippingCost}
  */
-async function sendNewOrderNotification(user, order, items) {
+async function sendNewOrderNotification(user, order, items, summaryData = {}) {
   const to = EMAIL_USER;
+  // Si summaryData viene vacío (compatibilidad), calculamos algo básico o dejamos vacío
+  // Pero con la actualización de orderController, debería venir lleno.
   const html = loadTemplate("new-order-notification.html", {
     user,
     order,
     items,
     address: order.Address,
+    subtotal: summaryData.subtotal || "N/A",
+    tax: summaryData.tax || "N/A",
+    shippingCost: summaryData.shippingCost || "0.00",
   });
   console.log(
     `🛠 Generando email de NOTIFICACIÓN DE ADMIN para pedido: ${order.id}`
@@ -147,7 +160,6 @@ async function sendNewOrderNotification(user, order, items) {
   await sendEmail(to, `¡Nuevo Pedido Recibido! - #${order.id}`, html);
 }
 
-// --- 👇 NUEVA FUNCIÓN AÑADIDA ---
 /**
  * Envía un correo para restablecer la contraseña
  * @param {string} toEmail - Email del destinatario
@@ -159,7 +171,6 @@ async function sendPasswordResetEmail(toEmail, name, resetLink) {
   console.log(`🛠 Generando email de reseteo de contraseña para: ${toEmail}`);
   await sendEmail(toEmail, "Restablece tu contraseña de Footer 👟", html);
 }
-// --- FIN DE NUEVA FUNCIÓN ---
 
 module.exports = {
   sendEmail,
@@ -168,5 +179,5 @@ module.exports = {
   sendContactInquiry,
   sendContactConfirmation,
   sendNewOrderNotification,
-  sendPasswordResetEmail, // <-- Exportamos la nueva función
+  sendPasswordResetEmail,
 };

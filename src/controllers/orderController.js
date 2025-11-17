@@ -12,23 +12,23 @@ const {
   ProductVariantStock,
 } = require("../models");
 
-// --- 👇 CAMBIO: Importar la nueva función ---
 const {
   sendOrderConfirmationEmail,
-  sendNewOrderNotification, // <-- Importamos la nueva función
+  sendNewOrderNotification,
 } = require("../services/emailService");
 const { createCheckoutSession } = require("../services/paymentService");
 const { frontendUrl } = require("../config/env");
 
 /**
  * Crea una orden leyendo el carrito desde la BBDD, verifica stock,
- * resta el stock, y genera la sesión de pago.
+ * calcula gastos de envío, resta el stock, y genera la sesión de pago.
  */
 const createOrder = async (req, res, next) => {
   const t = await sequelize.transaction();
   try {
     const userId = req.user.id;
-    const { addressId } = req.body;
+    // Aceptamos shippingMethod del body (por defecto 'standard')
+    const { addressId, shippingMethod = "standard" } = req.body;
 
     if (!addressId) {
       await t.rollback();
@@ -70,9 +70,9 @@ const createOrder = async (req, res, next) => {
       return res.status(400).json({ message: "Tu carrito está vacío." });
     }
 
-    let total = 0;
+    let productsTotal = 0; // Suma solo de productos
     const lineItems = [];
-    const itemsForEmail = []; // Lo usaremos para ambos emails
+    const itemsForEmail = [];
 
     for (const item of cartItems) {
       const variant = item.ProductVariantStock;
@@ -85,7 +85,7 @@ const createOrder = async (req, res, next) => {
         });
       }
 
-      total += item.quantity * product.price;
+      productsTotal += item.quantity * product.price;
 
       lineItems.push({
         price_data: {
@@ -98,7 +98,6 @@ const createOrder = async (req, res, next) => {
         quantity: item.quantity,
       });
 
-      // ¡Corregido! Pasamos los datos que espera la plantilla
       itemsForEmail.push({
         name: product.name,
         size: variant.size,
@@ -108,12 +107,47 @@ const createOrder = async (req, res, next) => {
       });
     }
 
+    // --- LÓGICA DE ENVÍO ---
+    let shippingCost = 0;
+    let shippingName = "Envío Estándar";
+
+    if (shippingMethod === "express") {
+      shippingCost = 7.95;
+      shippingName = "Envío Express (24h)";
+    } else {
+      // Estándar: Gratis si productos >= 50€
+      if (productsTotal >= 50) {
+        shippingCost = 0;
+        shippingName = "Envío Gratuito";
+      } else {
+        shippingCost = 4.95;
+        shippingName = "Envío Estándar";
+      }
+    }
+
+    // Agregamos el envío a la sesión de Stripe si tiene costo
+    if (shippingCost > 0) {
+      lineItems.push({
+        price_data: {
+          currency: "eur",
+          product_data: {
+            name: shippingName,
+          },
+          unit_amount: Math.round(shippingCost * 100),
+        },
+        quantity: 1,
+      });
+    }
+
+    // El total de la orden es productos + envío
+    const orderTotal = productsTotal + shippingCost;
+
     const order = await Order.create(
       {
         userId,
         addressId,
         status: "pendiente",
-        total: total,
+        total: orderTotal,
       },
       { transaction: t }
     );
@@ -256,15 +290,18 @@ const getOrderById = async (req, res, next) => {
 
     const orderJson = order.toJSON();
     const itemsForEmail = [];
+    let productsTotal = 0; // Para recalcular desgloses
 
     orderJson.OrderItems = orderJson.OrderItems.map((item) => {
       const variant = item.ProductVariantStock;
       const product = variant.Product;
       const productName = `${product.name} (${variant.color} / ${variant.size})`;
 
-      // ¡Corregido! Pasamos los datos que espera la plantilla
+      // Calculamos total de productos para separar del envío
+      productsTotal += Number(item.price) * item.quantity;
+
       itemsForEmail.push({
-        name: product.name, // Nombre base
+        name: product.name,
         size: variant.size,
         color: variant.color,
         quantity: item.quantity,
@@ -290,6 +327,25 @@ const getOrderById = async (req, res, next) => {
       order.status = "pagado";
       await order.save();
 
+      // --- CÁLCULOS MATEMÁTICOS PARA EMAILS ---
+      // 1. Envío = Total Pagado - Suma de Productos
+      const shippingCost = Number(orderJson.total) - productsTotal;
+
+      // 2. Base Imponible = Productos / 1.21
+      const subtotal = productsTotal / 1.21;
+
+      // 3. IVA = Productos - Base
+      const tax = productsTotal - subtotal;
+
+      // Formateamos a 2 decimales para el correo
+      const summaryData = {
+        total: Number(orderJson.total).toFixed(2),
+        subtotal: subtotal.toFixed(2),
+        tax: tax.toFixed(2),
+        shippingCost: shippingCost.toFixed(2),
+      };
+      // -----------------------------------------
+
       // --- Email de Confirmación al Cliente ---
       try {
         console.log("📧 (Confirmación) Enviando email a", orderJson.User.email);
@@ -297,30 +353,29 @@ const getOrderById = async (req, res, next) => {
           orderJson.User.email,
           orderJson.User.username,
           itemsForEmail,
-          orderJson.total
+          summaryData // Pasamos el objeto con el desglose
         );
         console.log("✅ (Confirmación) Email enviado correctamente");
       } catch (emailError) {
         console.error("❌ Error enviando email de confirmación:", emailError);
       }
 
-      // --- 👇 CAMBIO: Notificación al ADMIN ---
+      // --- Notificación al ADMIN ---
       try {
         console.log("📧 (Admin) Enviando notificación de nuevo pedido...");
         await sendNewOrderNotification(
-          orderJson.User, // Objeto User
-          orderJson, // Objeto Order
-          itemsForEmail // Array de Items
+          orderJson.User,
+          orderJson,
+          itemsForEmail,
+          summaryData // Pasamos el objeto con el desglose
         );
         console.log("✅ (Admin) Email de notificación enviado correctamente");
       } catch (adminEmailError) {
-        // No detenemos la respuesta al usuario por esto, solo lo registramos
         console.error(
           "❌ Error enviando email de notificación al admin:",
           adminEmailError
         );
       }
-      // --- FIN DEL CAMBIO ---
     }
 
     res.json(orderJson);

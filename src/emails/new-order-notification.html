@@ -4,7 +4,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>¡Nuevo Pedido Recibido!</title>
-    <!-- Favicon (Solo para algunos clientes web, no funcionará en la mayoría) -->
     <link
       rel="icon"
       type="image/x-icon"
@@ -87,6 +86,23 @@
       .products-table th {
         background-color: #f3f4f6;
       }
+      /* Estilos para el resumen */
+      .summary-container {
+        margin-top: 15px;
+        border-top: 1px solid #eee;
+        padding-top: 10px;
+        text-align: right;
+      }
+      .summary-row {
+        margin: 4px 0;
+        color: #555;
+      }
+      .total-row {
+        font-weight: bold;
+        font-size: 18px;
+        color: #111827;
+        margin-top: 8px;
+      }
       .footer {
         background-color: #f9f9f9;
         color: #777;
@@ -109,7 +125,6 @@
   <body>
     <div class="container">
       <div class="header">
-        <!-- SVG logo -->
         <svg
           fill="currentColor"
           viewBox="0 0 48 48"
@@ -129,7 +144,6 @@
 
         <div class="order-details">
           <p><strong>Cliente:</strong> {{user.username}} ({{user.email}})</p>
-          <p><strong>Total del Pedido:</strong> {{order.total}} €</p>
           <p><strong>Estado:</strong> {{order.status}}</p>
         </div>
 
@@ -163,6 +177,13 @@
             {{/each}}
           </tbody>
         </table>
+
+        <div class="summary-container">
+          <p class="summary-row">Base Imponible: {{subtotal}} €</p>
+          <p class="summary-row">IVA (21%): {{tax}} €</p>
+          <p class="summary-row">Envío: {{shippingCost}} €</p>
+          <p class="total-row">Total: {{order.total}} €</p>
+        </div>
 
         <a
           href="http://localhost:4200/admin/orders"
