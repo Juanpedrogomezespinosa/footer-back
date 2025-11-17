@@ -39,6 +39,15 @@ exports.createAddress = async (req, res, next) => {
       isDefault,
     } = req.body;
 
+    // --- VALIDACIÓN DE TELÉFONO ---
+    if (!phone || phone.trim() === "") {
+      await t.rollback();
+      return res.status(400).json({
+        message: "El número de teléfono es obligatorio para realizar envíos.",
+      });
+    }
+    // ------------------------------
+
     // Lógica de "isDefault": Si esta es la nueva por defecto,
     // desmarcar todas las demás para este usuario.
     if (isDefault) {
@@ -90,6 +99,15 @@ exports.updateAddress = async (req, res, next) => {
       phone,
       isDefault,
     } = req.body;
+
+    // --- VALIDACIÓN DE TELÉFONO ---
+    if (!phone || phone.trim() === "") {
+      await t.rollback();
+      return res.status(400).json({
+        message: "El número de teléfono es obligatorio para realizar envíos.",
+      });
+    }
+    // ------------------------------
 
     // 1. Lógica de "isDefault" (igual que en create)
     if (isDefault) {
