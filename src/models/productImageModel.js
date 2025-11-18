@@ -23,6 +23,12 @@ const ProductImage = sequelize.define(
       allowNull: false,
       comment: "Ruta pública de la imagen (ej: /uploads/imagen.png)",
     },
+    variantColor: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+      comment:
+        "Color de la variante a la que pertenece esta imagen (ej: 'Rojo'). Null si es genérica.",
+    },
     displayOrder: {
       type: DataTypes.INTEGER,
       allowNull: true,
@@ -32,12 +38,6 @@ const ProductImage = sequelize.define(
   {
     tableName: "product_images",
     timestamps: false,
-    // --- ¡ESTA ES LA CORRECCIÓN! ---
-    // Esto le dice a Sequelize que mapee
-    // productId -> product_id
-    // imageUrl -> image_url
-    // displayOrder -> display_order
-    // (tal como lo creamos en Workbench)
     underscored: true,
   }
 );

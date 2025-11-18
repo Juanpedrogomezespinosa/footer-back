@@ -1,6 +1,6 @@
 // src/models/productvariantstock.js
 const { DataTypes } = require("sequelize");
-const sequelize = require("../config/db"); // <-- Importa sequelize
+const sequelize = require("../config/db");
 
 // Define el modelo directamente
 const ProductVariantStock = sequelize.define(
@@ -33,6 +33,13 @@ const ProductVariantStock = sequelize.define(
       allowNull: false,
       defaultValue: 0,
     },
+    price: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: false,
+      defaultValue: 0.0,
+      comment:
+        "Precio específico de la variante. Si es 0, usa el precio base del producto.",
+    },
   },
   {
     tableName: "product_variant_stock", // Nombre de la tabla en DB
@@ -46,8 +53,6 @@ const ProductVariantStock = sequelize.define(
     ],
   }
 );
-
-// YA NO HAY FUNCIÓN .associate() AQUÍ
 
 // Exportamos el modelo ya inicializado
 module.exports = ProductVariantStock;
