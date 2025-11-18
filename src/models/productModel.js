@@ -23,8 +23,13 @@ const Product = sequelize.define(
       type: DataTypes.DECIMAL(10, 2),
       allowNull: false,
     },
-    // CAMPO ELIMINADO: 'stock'
-    // CAMPO ELIMINADO: 'size'
+    // --- NUEVO CAMPO ---
+    discountPrice: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: true,
+      field: "discount_price", // Mapea a la columna con guion bajo en la DB
+      comment: "Precio original antes del descuento (para mostrar tachado)",
+    },
     color: {
       // SÍ mantenemos 'color' para el color principal/agrupador
       type: DataTypes.STRING,

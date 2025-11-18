@@ -132,6 +132,7 @@ exports.getAllProducts = async (request, response, next) => {
         "name",
         "description",
         "price",
+        "discountPrice", // <-- AÑADIDO
         "brand",
         "category",
         "sub_category",
@@ -268,6 +269,7 @@ exports.getProductById = async (request, response, next) => {
         "name",
         "description",
         "price",
+        "discountPrice", // <-- AÑADIDO
         "brand",
         "category",
         "sub_category",
@@ -288,7 +290,6 @@ exports.getProductById = async (request, response, next) => {
         {
           model: ProductVariantStock,
           as: "variants",
-          // --- CORRECCIÓN 1: Añadimos 'price' a la consulta ---
           attributes: ["id", "color", "size", "stock", "price"],
         },
       ],
@@ -335,7 +336,6 @@ exports.getProductById = async (request, response, next) => {
         id: variant.id,
         size: variant.size,
         stock: variant.stock,
-        // --- CORRECCIÓN 2: Incluimos 'price' en el objeto agrupado ---
         price: variant.price,
       });
       return acc;
@@ -347,7 +347,6 @@ exports.getProductById = async (request, response, next) => {
       availableColors,
       imagesByColor,
       variantsByColor,
-      // --- CORRECCIÓN 3: ¡NO LO BORRAMOS! El admin lo necesita ---
       variants: productJson.variants,
       images: undefined,
     };
@@ -392,7 +391,6 @@ exports.getProductById = async (request, response, next) => {
   }
 };
 
-// ... (Resto de funciones: createProduct, updateProduct, deleteProduct, getRelatedProducts sin cambios nuevos, se mantienen igual que la versión anterior)
 exports.createProduct = async (request, response, next) => {
   const t = await sequelize.transaction();
   try {
@@ -400,6 +398,7 @@ exports.createProduct = async (request, response, next) => {
       name,
       description,
       price,
+      discountPrice, // <-- AÑADIDO
       brand,
       category,
       sub_category,
@@ -452,6 +451,7 @@ exports.createProduct = async (request, response, next) => {
         name,
         description,
         price,
+        discountPrice: discountPrice || null, // <-- GUARDAMOS
         brand,
         category,
         sub_category,
@@ -470,7 +470,6 @@ exports.createProduct = async (request, response, next) => {
       color: v.color,
       size: v.size,
       stock: v.stock,
-      // --- Aseguramos que se guarde el precio ---
       price: v.price || 0,
     }));
 
@@ -547,6 +546,7 @@ exports.updateProduct = async (request, response, next) => {
       name,
       description,
       price,
+      discountPrice,
       brand,
       category,
       sub_category,
@@ -559,16 +559,35 @@ exports.updateProduct = async (request, response, next) => {
 
     const parsedVariants = variants ? JSON.parse(variants) : undefined;
 
-    product.name = name ?? product.name;
-    product.description = description ?? product.description;
-    product.price = price ?? product.price;
-    product.brand = brand ?? product.brand;
-    product.category = category ?? product.category;
-    product.sub_category = sub_category ?? product.sub_category;
-    product.gender = gender ?? product.gender;
-    product.material = material ?? product.material;
-    product.season = season || product.season;
-    product.is_new = is_new ?? product.is_new;
+    // Actualización condicional de campos
+    if (name !== undefined) product.name = name;
+    if (description !== undefined) product.description = description;
+    if (price !== undefined) product.price = price;
+
+    // Lógica específica para descuento (permite quitarlo enviando null)
+    if (discountPrice !== undefined) {
+      // Si viene string "null" o vacío, lo convertimos a null real
+      product.discountPrice =
+        discountPrice && discountPrice !== "null" ? discountPrice : null;
+    }
+
+    if (brand !== undefined) product.brand = brand;
+    if (category !== undefined) product.category = category;
+    if (sub_category !== undefined) product.sub_category = sub_category;
+    if (gender !== undefined) product.gender = gender;
+    if (material !== undefined) product.material = material;
+
+    // --- CORRECCIÓN PARA SEASON ---
+    if (season !== undefined) {
+      // Si viene vacío, "null" o "N/A", guardamos null en la DB
+      if (!season || season === "null" || season === "") {
+        product.season = null;
+      } else {
+        product.season = season;
+      }
+    }
+
+    if (is_new !== undefined) product.is_new = is_new;
 
     if (parsedVariants && parsedVariants.length > 0) {
       product.color = parsedVariants[0].color;
@@ -582,7 +601,7 @@ exports.updateProduct = async (request, response, next) => {
         color: v.color,
         size: v.size,
         stock: v.stock,
-        price: v.price || 0, // Actualizamos precio de variante
+        price: v.price || 0,
       }));
 
       for (const variant of variantData) {
@@ -610,6 +629,18 @@ exports.updateProduct = async (request, response, next) => {
       return response
         .status(400)
         .json({ message: "Error de validación", errors: messages });
+    }
+
+    // Captura específica para el error de ENUM/Truncated
+    if (
+      error.code === "WARN_DATA_TRUNCATED" ||
+      error.name === "SequelizeDatabaseError"
+    ) {
+      console.error("Error de base de datos detallado:", error);
+      return response.status(400).json({
+        message:
+          "Error en los datos enviados (probablemente un valor inválido para temporada o género).",
+      });
     }
 
     if (error instanceof SyntaxError) {
@@ -677,6 +708,7 @@ exports.getRelatedProducts = async (request, response, next) => {
         "name",
         "description",
         "price",
+        "discountPrice", // <-- AÑADIDO
         "brand",
         "category",
         "sub_category",
