@@ -27,7 +27,6 @@ const createOrder = async (req, res, next) => {
   const t = await sequelize.transaction();
   try {
     const userId = req.user.id;
-    // Aceptamos shippingMethod del body (por defecto 'standard')
     const { addressId, shippingMethod = "standard" } = req.body;
 
     if (!addressId) {
@@ -70,7 +69,7 @@ const createOrder = async (req, res, next) => {
       return res.status(400).json({ message: "Tu carrito está vacío." });
     }
 
-    let productsTotal = 0; // Suma solo de productos
+    let productsTotal = 0;
     const lineItems = [];
     const itemsForEmail = [];
 
@@ -78,6 +77,7 @@ const createOrder = async (req, res, next) => {
       const variant = item.ProductVariantStock;
       const product = variant.Product;
 
+      // --- VALIDACIÓN DE STOCK ---
       if (item.quantity > variant.stock) {
         await t.rollback();
         return res.status(400).json({
@@ -85,15 +85,25 @@ const createOrder = async (req, res, next) => {
         });
       }
 
-      productsTotal += item.quantity * product.price;
+      // --- CORRECCIÓN DE PRECIO (BUG FIX) ---
+      // Priorizamos el precio de la variante (11€). Si no existe, usamos el del producto (20€).
+      // Convertimos a Number para asegurar cálculos matemáticos correctos.
+      const unitPrice = variant.price
+        ? Number(variant.price)
+        : Number(product.price);
 
+      // Calculamos el total usando el precio REAL
+      productsTotal += item.quantity * unitPrice;
+
+      // Preparamos la línea para Stripe con el precio correcto
       lineItems.push({
         price_data: {
           currency: "eur",
           product_data: {
             name: `${product.name} (${variant.color} / ${variant.size})`,
           },
-          unit_amount: Math.round(product.price * 100),
+          // Stripe espera centavos (por eso * 100)
+          unit_amount: Math.round(unitPrice * 100),
         },
         quantity: item.quantity,
       });
@@ -103,7 +113,7 @@ const createOrder = async (req, res, next) => {
         size: variant.size,
         color: variant.color,
         quantity: item.quantity,
-        price: product.price,
+        price: unitPrice, // Usamos el precio corregido para el email
       });
     }
 
@@ -125,7 +135,7 @@ const createOrder = async (req, res, next) => {
       }
     }
 
-    // Agregamos el envío a la sesión de Stripe si tiene costo
+    // Agregamos el envío a Stripe
     if (shippingCost > 0) {
       lineItems.push({
         price_data: {
@@ -139,9 +149,9 @@ const createOrder = async (req, res, next) => {
       });
     }
 
-    // El total de la orden es productos + envío
     const orderTotal = productsTotal + shippingCost;
 
+    // Creamos la Orden en BBDD
     const order = await Order.create(
       {
         userId,
@@ -152,31 +162,39 @@ const createOrder = async (req, res, next) => {
       { transaction: t }
     );
 
+    // Guardamos los items de la orden con el PRECIO CONGELADO correcto
     for (const item of cartItems) {
       const variant = item.ProductVariantStock;
-      const product = variant.Product;
+
+      // Recalculamos el precio aquí también para asegurarnos (o podríamos guardarlo en el loop anterior)
+      const unitPrice = variant.price
+        ? Number(variant.price)
+        : Number(variant.Product.price);
 
       await OrderItem.create(
         {
           orderId: order.id,
           productVariantStockId: item.productVariantStockId,
           quantity: item.quantity,
-          price: product.price,
+          price: unitPrice, // <--- IMPORTANTE: Guardamos 11€, no 20€
         },
         { transaction: t }
       );
 
+      // Restamos stock
       await ProductVariantStock.update(
         { stock: variant.stock - item.quantity },
         { where: { id: variant.id }, transaction: t }
       );
     }
 
+    // Limpiamos el carrito
     await CartItem.destroy({ where: { userId: userId }, transaction: t });
 
     const successUrl = `${frontendUrl}/confirmation/${order.id}`;
     const cancelUrl = `${frontendUrl}/cart`;
 
+    // Llamamos al servicio de pago (que ya funciona bien, solo necesitaba los datos correctos)
     const session = await createCheckoutSession(
       lineItems,
       successUrl,
@@ -232,12 +250,18 @@ const getOrderHistory = async (req, res, next) => {
         const variant = item.ProductVariantStock;
         const product = variant.Product;
         product.name = `${product.name} (${variant.color} / ${variant.size})`;
+
+        // Lógica de imagen segura (sin depender de la columna color que no tienes)
         if (product.images && product.images.length > 0) {
-          product.images.sort((a, b) => a.displayOrder - b.displayOrder);
+          // Ordenamos por displayOrder si existe
+          product.images.sort(
+            (a, b) => (a.displayOrder || 0) - (b.displayOrder || 0)
+          );
           product.image = product.images[0].imageUrl;
         } else {
           product.image = null;
         }
+
         item.Product = product;
         delete item.ProductVariantStock;
         delete item.Product.images;
@@ -254,7 +278,7 @@ const getOrderHistory = async (req, res, next) => {
 };
 
 /**
- * Obtiene una orden específica por ID (para la página de confirmación).
+ * Obtiene una orden específica por ID.
  */
 const getOrderById = async (req, res, next) => {
   try {
@@ -290,14 +314,15 @@ const getOrderById = async (req, res, next) => {
 
     const orderJson = order.toJSON();
     const itemsForEmail = [];
-    let productsTotal = 0; // Para recalcular desgloses
+    let productsTotal = 0;
 
     orderJson.OrderItems = orderJson.OrderItems.map((item) => {
       const variant = item.ProductVariantStock;
       const product = variant.Product;
       const productName = `${product.name} (${variant.color} / ${variant.size})`;
 
-      // Calculamos total de productos para separar del envío
+      // Aquí 'item.price' viene de la tabla OrderItems, que ya guardamos correctamente
+      // así que esto debería estar bien si el pedido se creó después del fix.
       productsTotal += Number(item.price) * item.quantity;
 
       itemsForEmail.push({
@@ -309,8 +334,12 @@ const getOrderById = async (req, res, next) => {
       });
 
       product.name = productName;
+
+      // Lógica de imagen segura
       if (product.images && product.images.length > 0) {
-        product.images.sort((a, b) => a.displayOrder - b.displayOrder);
+        product.images.sort(
+          (a, b) => (a.displayOrder || 0) - (b.displayOrder || 0)
+        );
         product.image = product.images[0].imageUrl;
       } else {
         product.image = null;
@@ -327,54 +356,43 @@ const getOrderById = async (req, res, next) => {
       order.status = "pagado";
       await order.save();
 
-      // --- CÁLCULOS MATEMÁTICOS PARA EMAILS ---
-      // 1. Envío = Total Pagado - Suma de Productos
+      // Cálculos para el email
       const shippingCost = Number(orderJson.total) - productsTotal;
-
-      // 2. Base Imponible = Productos / 1.21
       const subtotal = productsTotal / 1.21;
-
-      // 3. IVA = Productos - Base
       const tax = productsTotal - subtotal;
 
-      // Formateamos a 2 decimales para el correo
       const summaryData = {
         total: Number(orderJson.total).toFixed(2),
         subtotal: subtotal.toFixed(2),
         tax: tax.toFixed(2),
         shippingCost: shippingCost.toFixed(2),
       };
-      // -----------------------------------------
 
-      // --- Email de Confirmación al Cliente ---
+      // Emails
       try {
         console.log("📧 (Confirmación) Enviando email a", orderJson.User.email);
         await sendOrderConfirmationEmail(
           orderJson.User.email,
           orderJson.User.username,
           itemsForEmail,
-          summaryData // Pasamos el objeto con el desglose
+          summaryData
         );
         console.log("✅ (Confirmación) Email enviado correctamente");
       } catch (emailError) {
         console.error("❌ Error enviando email de confirmación:", emailError);
       }
 
-      // --- Notificación al ADMIN ---
       try {
         console.log("📧 (Admin) Enviando notificación de nuevo pedido...");
         await sendNewOrderNotification(
           orderJson.User,
           orderJson,
           itemsForEmail,
-          summaryData // Pasamos el objeto con el desglose
+          summaryData
         );
         console.log("✅ (Admin) Email de notificación enviado correctamente");
       } catch (adminEmailError) {
-        console.error(
-          "❌ Error enviando email de notificación al admin:",
-          adminEmailError
-        );
+        console.error("❌ Error enviando email al admin:", adminEmailError);
       }
     }
 

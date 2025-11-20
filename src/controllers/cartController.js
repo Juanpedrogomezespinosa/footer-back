@@ -3,13 +3,13 @@ const {
   CartItem,
   Product,
   ProductImage,
-  ProductVariantStock, // <-- ¡Este es el modelo clave ahora!
+  ProductVariantStock,
 } = require("../models");
 
 /**
- * --- ¡FUNCIÓN REESCRITA! ---
- * Obtiene los productos del carrito del usuario actual,
- * apuntando a las variantes para obtener los detalles correctos.
+ * --- ¡FUNCIÓN CORREGIDA PARA EVITAR ERROR 500! ---
+ * Hemos eliminado la referencia a 'color' en ProductImage
+ * porque esa columna no existe en tu base de datos.
  */
 const getCart = async (req, res, next) => {
   try {
@@ -19,18 +19,16 @@ const getCart = async (req, res, next) => {
       where: { userId },
       include: [
         {
-          // 1. Incluimos la VARIANTE (nuestra FK)
           model: ProductVariantStock,
           include: [
             {
-              // 2. Dentro de la variante, incluimos el PRODUCTO padre
               model: Product,
-              as: "Product", // Usamos el alias de 'index.js'
+              as: "Product",
               include: [
                 {
-                  // 3. Y dentro del producto, sus imágenes
                   model: ProductImage,
                   as: "images",
+                  // CORRECCIÓN: Eliminamos "color" de aquí para que no falle el SQL
                   attributes: ["id", "imageUrl", "displayOrder"],
                   order: [["displayOrder", "ASC"]],
                 },
@@ -39,37 +37,38 @@ const getCart = async (req, res, next) => {
           ],
         },
       ],
-      order: [["created_at", "DESC"]], // Ordenar por más nuevo
+      order: [["created_at", "DESC"]],
     });
 
-    // Mapeamos la respuesta para que el frontend la entienda fácilmente
+    // Mapeamos la respuesta
     const plainCart = cart.map((item) => {
       const itemJson = item.toJSON();
       const variant = itemJson.ProductVariantStock;
       const product = variant.Product;
 
-      // Encontrar la imagen principal
-      let mainImage = null;
+      // --- LÓGICA DE IMAGEN (SIMPLIFICADA) ---
+      // Al no tener columna de color en las imágenes, cogemos la primera disponible.
+      let finalImage = null;
+
       if (product.images && product.images.length > 0) {
-        // (No es necesario ordenar aquí si la consulta ya lo hizo)
-        mainImage = product.images[0].imageUrl;
+        finalImage = product.images[0].imageUrl;
       }
 
-      // Devolvemos un objeto limpio
       return {
-        id: itemJson.id, // Este es el ID de CartItem (para poder eliminarlo)
+        id: itemJson.id,
         quantity: itemJson.quantity,
         product: {
-          id: product.id, // ID del producto padre
+          id: product.id,
           name: product.name,
-          price: product.price,
-          image: mainImage,
+          price: product.price, // Precio base
+          image: finalImage, // Imagen principal
         },
         variant: {
-          id: variant.id, // Este es el productVariantStockId
+          id: variant.id,
           color: variant.color,
           size: variant.size,
-          stock: variant.stock, // Pasamos el stock para validación en el front
+          stock: variant.stock,
+          price: variant.price, // ¡ESTO ES LO IMPORTANTE! El precio de 11€ se envía bien.
         },
       };
     });
@@ -81,14 +80,11 @@ const getCart = async (req, res, next) => {
 };
 
 /**
- * --- ¡FUNCIÓN REESCRITA! ---
  * Añade una VARIANTE específica al carrito del usuario.
- * Ahora recibe 'productVariantStockId' en lugar de 'productId' y 'size'.
  */
 const addToCart = async (req, res, next) => {
   try {
     const userId = req.user.id;
-    // 1. Recibimos los nuevos campos del body
     const { productVariantStockId, quantity } = req.body;
 
     if (!productVariantStockId || !quantity || parseInt(quantity, 10) <= 0) {
@@ -97,7 +93,7 @@ const addToCart = async (req, res, next) => {
       });
     }
 
-    // 2. Validar que la variante existe y tiene stock
+    // Validar que la variante existe
     const variant = await ProductVariantStock.findByPk(productVariantStockId);
     if (!variant) {
       return res
@@ -105,15 +101,15 @@ const addToCart = async (req, res, next) => {
         .json({ message: "Variante de producto no encontrada" });
     }
 
-    // 3. Usar 'findOrCreate' para manejar si el item ya existe
+    // Buscar o crear el item en el carrito
     const [cartItem, created] = await CartItem.findOrCreate({
       where: { userId, productVariantStockId },
       defaults: {
-        quantity: 0, // Empezamos en 0, luego sumamos
+        quantity: 0,
       },
     });
 
-    // 4. Validar el stock TOTAL (lo que pide + lo que ya tiene)
+    // Validar stock
     const newQuantity = cartItem.quantity + parseInt(quantity, 10);
 
     if (variant.stock < newQuantity) {
@@ -122,11 +118,10 @@ const addToCart = async (req, res, next) => {
       });
     }
 
-    // 5. Guardar la nueva cantidad
+    // Guardar
     cartItem.quantity = newQuantity;
     await cartItem.save();
 
-    // Enviamos 201 (Created) si es nuevo, 200 (OK) si se actualizó
     res
       .status(created ? 201 : 200)
       .json({ message: "Producto añadido/actualizado en el carrito" });
@@ -136,14 +131,12 @@ const addToCart = async (req, res, next) => {
 };
 
 /**
- * --- ¡FUNCIÓN CORREGIDA! ---
  * Actualiza la cantidad de un producto en el carrito
- * (La validación de stock ahora usa productVariantStockId)
  */
 const updateCartItem = async (req, res, next) => {
   try {
     const userId = req.user.id;
-    const itemId = parseInt(req.params.itemId, 10); // Este es 'cart_items.id'
+    const itemId = parseInt(req.params.itemId, 10);
     const { quantity } = req.body;
 
     if (!quantity || quantity <= 0) {
@@ -162,27 +155,23 @@ const updateCartItem = async (req, res, next) => {
         .json({ message: "Producto no encontrado en el carrito" });
     }
 
-    // --- ¡LÓGICA DE VALIDACIÓN CORREGIDA! ---
-    // 1. Encontrar la variante usando la FK del cartItem
+    // Validar stock contra la variante
     const variant = await ProductVariantStock.findByPk(
       cartItem.productVariantStockId
     );
 
     if (!variant) {
-      // Si la variante fue eliminada de la BBDD
-      await cartItem.destroy(); // Limpiamos el carrito
+      await cartItem.destroy();
       return res.status(404).json({
         message: "Esta variante ya no existe y ha sido eliminada del carrito.",
       });
     }
 
-    // 2. Comparar con el stock real
     if (variant.stock < quantity) {
       return res.status(400).json({
         message: `Stock insuficiente. Solo quedan ${variant.stock} unidades.`,
       });
     }
-    // ------------------------------------------
 
     cartItem.quantity = quantity;
     await cartItem.save();
@@ -195,12 +184,11 @@ const updateCartItem = async (req, res, next) => {
 
 /**
  * Elimina un producto del carrito del usuario
- * (Esta función no necesitaba cambios, ya usaba el 'cart_items.id')
  */
 const removeCartItem = async (req, res, next) => {
   try {
     const userId = req.user.id;
-    const itemId = parseInt(req.params.itemId, 10); // 'cart_items.id'
+    const itemId = parseInt(req.params.itemId, 10);
 
     await CartItem.destroy({ where: { id: itemId, userId } });
 
