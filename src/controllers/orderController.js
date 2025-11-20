@@ -77,7 +77,6 @@ const createOrder = async (req, res, next) => {
       const variant = item.ProductVariantStock;
       const product = variant.Product;
 
-      // --- VALIDACIÓN DE STOCK ---
       if (item.quantity > variant.stock) {
         await t.rollback();
         return res.status(400).json({
@@ -85,24 +84,19 @@ const createOrder = async (req, res, next) => {
         });
       }
 
-      // --- CORRECCIÓN DE PRECIO (BUG FIX) ---
-      // Priorizamos el precio de la variante (11€). Si no existe, usamos el del producto (20€).
-      // Convertimos a Number para asegurar cálculos matemáticos correctos.
+      // --- CORRECCIÓN DE PRECIO ---
       const unitPrice = variant.price
         ? Number(variant.price)
         : Number(product.price);
 
-      // Calculamos el total usando el precio REAL
       productsTotal += item.quantity * unitPrice;
 
-      // Preparamos la línea para Stripe con el precio correcto
       lineItems.push({
         price_data: {
           currency: "eur",
           product_data: {
             name: `${product.name} (${variant.color} / ${variant.size})`,
           },
-          // Stripe espera centavos (por eso * 100)
           unit_amount: Math.round(unitPrice * 100),
         },
         quantity: item.quantity,
@@ -113,11 +107,10 @@ const createOrder = async (req, res, next) => {
         size: variant.size,
         color: variant.color,
         quantity: item.quantity,
-        price: unitPrice, // Usamos el precio corregido para el email
+        price: unitPrice,
       });
     }
 
-    // --- LÓGICA DE ENVÍO ---
     let shippingCost = 0;
     let shippingName = "Envío Estándar";
 
@@ -125,7 +118,6 @@ const createOrder = async (req, res, next) => {
       shippingCost = 7.95;
       shippingName = "Envío Express (24h)";
     } else {
-      // Estándar: Gratis si productos >= 50€
       if (productsTotal >= 50) {
         shippingCost = 0;
         shippingName = "Envío Gratuito";
@@ -135,7 +127,6 @@ const createOrder = async (req, res, next) => {
       }
     }
 
-    // Agregamos el envío a Stripe
     if (shippingCost > 0) {
       lineItems.push({
         price_data: {
@@ -151,7 +142,6 @@ const createOrder = async (req, res, next) => {
 
     const orderTotal = productsTotal + shippingCost;
 
-    // Creamos la Orden en BBDD
     const order = await Order.create(
       {
         userId,
@@ -162,11 +152,8 @@ const createOrder = async (req, res, next) => {
       { transaction: t }
     );
 
-    // Guardamos los items de la orden con el PRECIO CONGELADO correcto
     for (const item of cartItems) {
       const variant = item.ProductVariantStock;
-
-      // Recalculamos el precio aquí también para asegurarnos (o podríamos guardarlo en el loop anterior)
       const unitPrice = variant.price
         ? Number(variant.price)
         : Number(variant.Product.price);
@@ -176,25 +163,22 @@ const createOrder = async (req, res, next) => {
           orderId: order.id,
           productVariantStockId: item.productVariantStockId,
           quantity: item.quantity,
-          price: unitPrice, // <--- IMPORTANTE: Guardamos 11€, no 20€
+          price: unitPrice,
         },
         { transaction: t }
       );
 
-      // Restamos stock
       await ProductVariantStock.update(
         { stock: variant.stock - item.quantity },
         { where: { id: variant.id }, transaction: t }
       );
     }
 
-    // Limpiamos el carrito
     await CartItem.destroy({ where: { userId: userId }, transaction: t });
 
     const successUrl = `${frontendUrl}/confirmation/${order.id}`;
     const cancelUrl = `${frontendUrl}/cart`;
 
-    // Llamamos al servicio de pago (que ya funciona bien, solo necesitaba los datos correctos)
     const session = await createCheckoutSession(
       lineItems,
       successUrl,
@@ -216,8 +200,62 @@ const createOrder = async (req, res, next) => {
 };
 
 /**
- * Obtener historial de órdenes del usuario autenticado.
+ * --- ¡NUEVO! CANCELAR PEDIDO POR EL USUARIO ---
+ * Permite cancelar si el estado es 'pendiente' o 'pagado'.
+ * Devuelve el stock al inventario.
  */
+const cancelOrder = async (req, res, next) => {
+  const t = await sequelize.transaction();
+  try {
+    const userId = req.user.id;
+    const orderId = req.params.id;
+
+    // Buscamos el pedido y sus items
+    const order = await Order.findOne({
+      where: { id: orderId, userId },
+      include: [{ model: OrderItem }],
+      transaction: t,
+    });
+
+    if (!order) {
+      await t.rollback();
+      return res.status(404).json({ message: "Pedido no encontrado." });
+    }
+
+    // Solo permitimos cancelar si no ha sido enviado aún
+    const cancellableStatuses = ["pendiente", "pagado"];
+    if (!cancellableStatuses.includes(order.status)) {
+      await t.rollback();
+      return res.status(400).json({
+        message: "No es posible cancelar el pedido en su estado actual.",
+      });
+    }
+
+    // Actualizar estado
+    order.status = "cancelado";
+    await order.save({ transaction: t });
+
+    // --- DEVOLVER STOCK ---
+    for (const item of order.OrderItems) {
+      const variant = await ProductVariantStock.findByPk(
+        item.productVariantStockId,
+        { transaction: t }
+      );
+      if (variant) {
+        // Sumamos la cantidad cancelada al stock
+        variant.stock += item.quantity;
+        await variant.save({ transaction: t });
+      }
+    }
+
+    await t.commit();
+    res.json({ message: "Pedido cancelado correctamente.", order });
+  } catch (error) {
+    await t.rollback();
+    next(error);
+  }
+};
+
 const getOrderHistory = async (req, res, next) => {
   try {
     const userId = req.user.id;
@@ -251,9 +289,7 @@ const getOrderHistory = async (req, res, next) => {
         const product = variant.Product;
         product.name = `${product.name} (${variant.color} / ${variant.size})`;
 
-        // Lógica de imagen segura (sin depender de la columna color que no tienes)
         if (product.images && product.images.length > 0) {
-          // Ordenamos por displayOrder si existe
           product.images.sort(
             (a, b) => (a.displayOrder || 0) - (b.displayOrder || 0)
           );
@@ -277,9 +313,6 @@ const getOrderHistory = async (req, res, next) => {
   }
 };
 
-/**
- * Obtiene una orden específica por ID.
- */
 const getOrderById = async (req, res, next) => {
   try {
     const userId = req.user.id;
@@ -321,8 +354,6 @@ const getOrderById = async (req, res, next) => {
       const product = variant.Product;
       const productName = `${product.name} (${variant.color} / ${variant.size})`;
 
-      // Aquí 'item.price' viene de la tabla OrderItems, que ya guardamos correctamente
-      // así que esto debería estar bien si el pedido se creó después del fix.
       productsTotal += Number(item.price) * item.quantity;
 
       itemsForEmail.push({
@@ -335,7 +366,6 @@ const getOrderById = async (req, res, next) => {
 
       product.name = productName;
 
-      // Lógica de imagen segura
       if (product.images && product.images.length > 0) {
         product.images.sort(
           (a, b) => (a.displayOrder || 0) - (b.displayOrder || 0)
@@ -356,7 +386,6 @@ const getOrderById = async (req, res, next) => {
       order.status = "pagado";
       await order.save();
 
-      // Cálculos para el email
       const shippingCost = Number(orderJson.total) - productsTotal;
       const subtotal = productsTotal / 1.21;
       const tax = productsTotal - subtotal;
@@ -368,7 +397,6 @@ const getOrderById = async (req, res, next) => {
         shippingCost: shippingCost.toFixed(2),
       };
 
-      // Emails
       try {
         console.log("📧 (Confirmación) Enviando email a", orderJson.User.email);
         await sendOrderConfirmationEmail(
@@ -377,7 +405,6 @@ const getOrderById = async (req, res, next) => {
           itemsForEmail,
           summaryData
         );
-        console.log("✅ (Confirmación) Email enviado correctamente");
       } catch (emailError) {
         console.error("❌ Error enviando email de confirmación:", emailError);
       }
@@ -390,7 +417,6 @@ const getOrderById = async (req, res, next) => {
           itemsForEmail,
           summaryData
         );
-        console.log("✅ (Admin) Email de notificación enviado correctamente");
       } catch (adminEmailError) {
         console.error("❌ Error enviando email al admin:", adminEmailError);
       }
@@ -405,6 +431,7 @@ const getOrderById = async (req, res, next) => {
 
 module.exports = {
   createOrder,
+  cancelOrder, // <--- Exportamos la nueva función
   getOrderHistory,
   getOrderById,
 };

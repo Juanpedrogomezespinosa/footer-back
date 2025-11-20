@@ -4,18 +4,21 @@ const router = express.Router();
 const {
   createOrder,
   getOrderHistory,
-  getOrderById, // <-- 1. Importar la nueva función
+  getOrderById,
+  cancelOrder, // <-- Importar la nueva función
 } = require("../controllers/orderController");
 const authMiddleware = require("../middlewares/authMiddleware");
 
-// Ruta para crear una orden y obtener la sesión de pago
+// Crear pedido (Checkout)
 router.post("/checkout", authMiddleware, createOrder);
 
-// Ruta para obtener el historial de órdenes (protegida)
+// Historial de pedidos
 router.get("/history", authMiddleware, getOrderHistory);
 
-// --- 👇 2. AÑADIR NUEVA RUTA ---
-// Ruta para obtener UNA orden (para la página de confirmación)
+// Obtener UNA orden (para la página de confirmación)
 router.get("/:id", authMiddleware, getOrderById);
+
+// --- NUEVA RUTA: Cancelar pedido ---
+router.put("/:id/cancel", authMiddleware, cancelOrder);
 
 module.exports = router;
