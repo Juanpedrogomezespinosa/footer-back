@@ -61,34 +61,69 @@ exports.getAllProducts = async (request, response, next) => {
 
     const whereProduct = {};
 
+    // Filtro de archivados
     if (showArchived !== "true") {
       whereProduct.is_active = true;
     }
 
+    // Búsqueda por nombre (Fuzzy)
     if (name) whereProduct.name = { [Op.like]: `%${name}%` };
+
+    // Rango de precios
     if (minPrice || maxPrice) {
       whereProduct.price = {};
       if (minPrice) whereProduct.price[Op.gte] = Number(minPrice);
       if (maxPrice) whereProduct.price[Op.lte] = Number(maxPrice);
     }
-    if (brand)
+
+    // --- LOGICA DE FILTROS MEJORADA ---
+
+    // Marca (Array exacto)
+    if (brand) {
       whereProduct.brand = Array.isArray(brand) ? { [Op.in]: brand } : brand;
-    if (category)
-      whereProduct.category = Array.isArray(category)
-        ? { [Op.in]: category }
-        : category;
-    if (gender)
-      whereProduct.gender = Array.isArray(gender)
-        ? { [Op.in]: gender }
-        : gender;
-    if (material) whereProduct.material = material;
-    if (season)
-      whereProduct.season = Array.isArray(season)
-        ? { [Op.in]: season }
-        : season;
+    }
+
+    // Categoría (Convertir a minúsculas para coincidir con ENUM)
+    if (category) {
+      const categories = Array.isArray(category) ? category : [category];
+      whereProduct.category = {
+        [Op.in]: categories.map((c) => c.toLowerCase()),
+      };
+    }
+
+    // Género (Convertir a minúsculas para coincidir con ENUM)
+    if (gender) {
+      const genders = Array.isArray(gender) ? gender : [gender];
+      whereProduct.gender = { [Op.in]: genders.map((g) => g.toLowerCase()) };
+    }
+
+    // Material (Exacto o Array)
+    if (material) {
+      whereProduct.material = Array.isArray(material)
+        ? { [Op.in]: material }
+        : material;
+    }
+
+    // Temporada (Convertir a minúsculas y manejar Array)
+    if (season) {
+      const seasons = Array.isArray(season) ? season : [season];
+      whereProduct.season = { [Op.in]: seasons.map((s) => s.toLowerCase()) };
+    }
+
+    // Nuevo / Usado
     if (is_new === "true") whereProduct.is_new = true;
     else if (is_new === "false") whereProduct.is_new = false;
-    if (color) whereProduct.color = color;
+
+    // COLOR (Lógica Fuzzy + Array)
+    // Si recibimos ['Negro', 'Blanco'], buscamos: color LIKE '%Negro%' OR color LIKE '%Blanco%'
+    if (color) {
+      const colors = Array.isArray(color) ? color : [color];
+      whereProduct.color = {
+        [Op.or]: colors.map((c) => ({ [Op.like]: `%${c}%` })),
+      };
+    }
+
+    // ----------------------------------
 
     const whereVariant = {};
     let includeVariants = false;
@@ -132,7 +167,7 @@ exports.getAllProducts = async (request, response, next) => {
         "name",
         "description",
         "price",
-        "discountPrice", // <-- AÑADIDO
+        "discountPrice",
         "brand",
         "category",
         "sub_category",
@@ -269,7 +304,7 @@ exports.getProductById = async (request, response, next) => {
         "name",
         "description",
         "price",
-        "discountPrice", // <-- AÑADIDO
+        "discountPrice",
         "brand",
         "category",
         "sub_category",
@@ -398,7 +433,7 @@ exports.createProduct = async (request, response, next) => {
       name,
       description,
       price,
-      discountPrice, // <-- AÑADIDO
+      discountPrice,
       brand,
       category,
       sub_category,
@@ -451,7 +486,7 @@ exports.createProduct = async (request, response, next) => {
         name,
         description,
         price,
-        discountPrice: discountPrice || null, // <-- GUARDAMOS
+        discountPrice: discountPrice || null,
         brand,
         category,
         sub_category,
@@ -559,14 +594,11 @@ exports.updateProduct = async (request, response, next) => {
 
     const parsedVariants = variants ? JSON.parse(variants) : undefined;
 
-    // Actualización condicional de campos
     if (name !== undefined) product.name = name;
     if (description !== undefined) product.description = description;
     if (price !== undefined) product.price = price;
 
-    // Lógica específica para descuento (permite quitarlo enviando null)
     if (discountPrice !== undefined) {
-      // Si viene string "null" o vacío, lo convertimos a null real
       product.discountPrice =
         discountPrice && discountPrice !== "null" ? discountPrice : null;
     }
@@ -577,9 +609,7 @@ exports.updateProduct = async (request, response, next) => {
     if (gender !== undefined) product.gender = gender;
     if (material !== undefined) product.material = material;
 
-    // --- CORRECCIÓN PARA SEASON ---
     if (season !== undefined) {
-      // Si viene vacío, "null" o "N/A", guardamos null en la DB
       if (!season || season === "null" || season === "") {
         product.season = null;
       } else {
@@ -631,7 +661,6 @@ exports.updateProduct = async (request, response, next) => {
         .json({ message: "Error de validación", errors: messages });
     }
 
-    // Captura específica para el error de ENUM/Truncated
     if (
       error.code === "WARN_DATA_TRUNCATED" ||
       error.name === "SequelizeDatabaseError"
@@ -708,7 +737,7 @@ exports.getRelatedProducts = async (request, response, next) => {
         "name",
         "description",
         "price",
-        "discountPrice", // <-- AÑADIDO
+        "discountPrice",
         "brand",
         "category",
         "sub_category",
