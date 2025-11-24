@@ -285,7 +285,9 @@ exports.getAllProducts = async (request, response, next) => {
       totalPages,
       totalItems,
       nextPage: page < totalPages ? page + 1 : null,
-      prevPage: page > 1 ? page + 1 : null,
+      // --- CORRECCIÓN AQUÍ: page - 1 en lugar de page + 1 ---
+      prevPage: page > 1 ? page - 1 : null,
+      // -----------------------------------------------------
       products: productsResponse,
     });
   } catch (error) {
