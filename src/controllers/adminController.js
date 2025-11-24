@@ -1,4 +1,3 @@
-// src/controllers/adminController.js
 const {
   User,
   Order,
@@ -6,7 +5,7 @@ const {
   Product,
   Address,
   ProductImage,
-  ProductVariantStock, // <-- 1. ¡IMPORTADO!
+  ProductVariantStock,
 } = require("../models");
 const { sequelize } = require("../models");
 const { Op, fn, col, literal } = require("sequelize");
@@ -31,20 +30,20 @@ exports.getDashboardStats = async (req, res, next) => {
     const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
 
-    // --- 2. ¡LÓGICA DE INGRESOS CORREGIDA! ---
-    // Ahora contamos todos los estados que son ingresos (pagado, enviado, entregado)
+    // --- 2. LÓGICA DE INGRESOS ---
+    // contamos todos los estados que son ingresos (pagado, enviado, entregado)
     const revenueStatuses = ["pagado", "enviado", "entregado"];
 
     const revenueCurrentMonth = await Order.sum("total", {
       where: {
-        status: { [Op.in]: revenueStatuses }, // <-- CORREGIDO
+        status: { [Op.in]: revenueStatuses },
         createdAt: { [Op.gte]: startOfMonth },
       },
     });
 
     const revenueLastMonth = await Order.sum("total", {
       where: {
-        status: { [Op.in]: revenueStatuses }, // <-- CORREGIDO
+        status: { [Op.in]: revenueStatuses },
         createdAt: {
           [Op.gte]: startOfLastMonth,
           [Op.lt]: startOfMonth,
@@ -140,7 +139,6 @@ exports.getDashboardStats = async (req, res, next) => {
  */
 exports.getSalesGraphData = async (req, res, next) => {
   try {
-    // --- LÓGICA DE INGRESOS CORREGIDA (igual que en stats) ---
     const revenueStatuses = ["pagado", "enviado", "entregado"];
 
     const salesLast30Days = await Order.findAll({
@@ -149,7 +147,7 @@ exports.getSalesGraphData = async (req, res, next) => {
         [fn("SUM", col("total")), "totalSales"],
       ],
       where: {
-        status: { [Op.in]: revenueStatuses }, // <-- CORREGIDO
+        status: { [Op.in]: revenueStatuses },
         createdAt: {
           [Op.gte]: literal("DATE_SUB(NOW(), INTERVAL 30 DAY)"),
         },
@@ -161,7 +159,7 @@ exports.getSalesGraphData = async (req, res, next) => {
 
     const salesPrevious30Days = await Order.sum("total", {
       where: {
-        status: { [Op.in]: revenueStatuses }, // <-- CORREGIDO
+        status: { [Op.in]: revenueStatuses },
         createdAt: {
           [Op.gte]: literal("DATE_SUB(NOW(), INTERVAL 60 DAY)"),
           [Op.lt]: literal("DATE_SUB(NOW(), INTERVAL 30 DAY)"),
@@ -363,8 +361,6 @@ exports.updateOrderStatus = async (req, res, next) => {
     next(error);
   }
 };
-
-// --- ¡¡¡NUEVAS FUNCIONES DE USUARIO AÑADIDAS!!! ---
 
 /**
  * [ADMIN] Obtiene TODOS los usuarios (con búsqueda)

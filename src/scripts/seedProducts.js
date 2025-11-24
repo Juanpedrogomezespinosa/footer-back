@@ -1,4 +1,3 @@
-// src/scripts/seedProducts.js
 const path = require("path");
 // Ajustamos la carga del .env para asegurarnos de que lo lee desde la raíz del proyecto
 require("dotenv").config({ path: path.resolve(__dirname, "../../.env") });
@@ -195,7 +194,6 @@ function extractMetadataFromPath(folderPath) {
     }
   }
 
-  // --- NUEVO: CONCATENAR MARCA + MODELO ---
   // Evitamos redundancia. Si la marca ya está en el nombre (ej: "Nike Peak"), no ponemos "Nike Nike Peak".
   const brandNormalized = brand.toLowerCase();
   const modelNormalized = modelName.toLowerCase();

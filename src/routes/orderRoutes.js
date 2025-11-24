@@ -5,7 +5,7 @@ const {
   createOrder,
   getOrderHistory,
   getOrderById,
-  cancelOrder, // <-- Importar la nueva función
+  cancelOrder,
 } = require("../controllers/orderController");
 const authMiddleware = require("../middlewares/authMiddleware");
 
@@ -18,7 +18,7 @@ router.get("/history", authMiddleware, getOrderHistory);
 // Obtener UNA orden (para la página de confirmación)
 router.get("/:id", authMiddleware, getOrderById);
 
-// --- NUEVA RUTA: Cancelar pedido ---
+// Cancelar pedido
 router.put("/:id/cancel", authMiddleware, cancelOrder);
 
 module.exports = router;

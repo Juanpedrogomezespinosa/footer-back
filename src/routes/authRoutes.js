@@ -1,15 +1,13 @@
-// src/routes/authRoutes.js
-
 const express = require("express");
 const router = express.Router();
-const passport = require("passport"); // <-- Importar Passport
+const passport = require("passport");
 
 const {
   register,
   login,
   forgotPassword,
   resetPassword,
-  generateToken, // <-- Importar el generador de token
+  generateToken,
 } = require("../controllers/authController");
 
 // --- Rutas de Email/Password ---
@@ -17,8 +15,6 @@ router.post("/register", register);
 router.post("/login", login);
 router.post("/forgot-password", forgotPassword);
 router.post("/reset-password", resetPassword);
-
-// --- 👇 NUEVAS RUTAS DE GOOGLE AÑADIDAS ---
 
 // 1. Iniciar el login con Google
 // El frontend (botón) enlazará a esta ruta
@@ -51,6 +47,5 @@ router.get(
     res.redirect(`${process.env.FRONTEND_URL}/auth/callback?token=${token}`);
   }
 );
-// --- FIN DE NUEVAS RUTAS ---
 
 module.exports = router;

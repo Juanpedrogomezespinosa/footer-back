@@ -1,4 +1,3 @@
-// src/controllers/cartController.js
 const {
   CartItem,
   Product,
@@ -61,13 +60,12 @@ const getCart = async (req, res, next) => {
           : product.images[0].imageUrl;
       }
 
-      // 2. LÓGICA DE PRECIO (HERENCIA) -> ¡AQUÍ ESTABA EL BUG!
+      // 2. LÓGICA DE PRECIO (HERENCIA)
       // Si el precio de la variante es mayor que 0, lo usamos.
       // Si es 0 (o null), usamos el precio base del producto.
       const variantPrice = parseFloat(variant.price || 0);
       const basePrice = parseFloat(product.price || 0);
 
-      // Esta es la regla de oro:
       const finalPrice = variantPrice > 0 ? variantPrice : basePrice;
 
       return {

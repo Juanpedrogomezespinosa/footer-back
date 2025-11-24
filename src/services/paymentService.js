@@ -1,4 +1,3 @@
-// src/services/paymentService.js
 const Stripe = require("stripe");
 const { stripeSecretKey } = require("../config/env");
 

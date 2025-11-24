@@ -1,4 +1,3 @@
-// src/controllers/productController.js
 const { Op, fn, col } = require("sequelize");
 const {
   Product,
@@ -368,8 +367,6 @@ exports.getProductById = async (request, response, next) => {
       imagesByColor,
       variantsByColor,
       variants: productJson.variants,
-      // --- CORRECCIÓN CRÍTICA: NO ELIMINAMOS 'images' ---
-      // images: undefined,  <-- ESTA LÍNEA SE HA BORRADO
     };
 
     const siblings = await Product.findAll({

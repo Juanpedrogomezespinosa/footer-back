@@ -18,18 +18,4 @@ const sequelize = new Sequelize(
   }
 );
 
-// --- BLOQUE DE SINCRONIZACIÓN DESACTIVADO ---
-// Esto evita el error ER_TOO_MANY_KEYS al inicio, permitiendo que Express se cargue.
-/*
-sequelize
-  .sync({ alter: true })
-  .then(() => {
-    console.log("Base de datos sincronizada (tablas actualizadas).");
-  })
-  .catch((err) => {
-    console.error("Error sincronizando la base de datos:", err);
-  });
-*/
-// --- FIN DEL BLOQUE DE SINCRONIZACIÓN ---
-
 module.exports = sequelize;

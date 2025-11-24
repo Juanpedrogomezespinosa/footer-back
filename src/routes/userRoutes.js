@@ -26,10 +26,8 @@ router.get("/profile", authMiddleware, getProfileData);
 // Actualización de datos TEXTUALES del perfil
 router.put("/profile", authMiddleware, updateProfile);
 
-// --- ¡NUEVA RUTA AÑADIDA! ---
 // Actualización de CONTRASEÑA
 router.put("/profile/password", authMiddleware, updatePassword);
-// --- FIN DE LA NUEVA RUTA ---
 
 // 🆕 RUTA PARA SUBIR/ACTUALIZAR IMAGEN DE PERFIL
 router.post(
@@ -41,8 +39,6 @@ router.post(
 
 // Historial de pedidos del usuario autenticado
 router.get("/me/orders", authMiddleware, getOrderHistory);
-
-// --- Rutas Generales y Dinámicas (AL FINAL) ---
 
 // Rutas solo para administradores
 router.get("/", authMiddleware, roleMiddleware("admin"), getAllUsers);

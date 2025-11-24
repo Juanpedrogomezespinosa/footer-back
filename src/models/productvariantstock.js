@@ -1,4 +1,3 @@
-// src/models/productvariantstock.js
 const { DataTypes } = require("sequelize");
 const sequelize = require("../config/db");
 

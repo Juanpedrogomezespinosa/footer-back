@@ -1,5 +1,3 @@
-// src/controllers/contactController.js
-
 const emailService = require("../services/emailService");
 
 exports.handleContactForm = async (req, res, next) => {

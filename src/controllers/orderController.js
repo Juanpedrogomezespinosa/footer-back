@@ -1,5 +1,3 @@
-// src/controllers/orderController.js
-
 const {
   sequelize,
   User,
@@ -85,7 +83,6 @@ const createOrder = async (req, res, next) => {
         });
       }
 
-      // --- CORRECCIÓN DE PRECIO (HERENCIA) ---
       // Convertimos a Float para asegurar que comparamos números.
       const vPrice = parseFloat(variant.price || 0);
       const pPrice = parseFloat(product.price || 0);
@@ -160,7 +157,6 @@ const createOrder = async (req, res, next) => {
     for (const item of cartItems) {
       const variant = item.ProductVariantStock;
 
-      // --- CORRECCIÓN DE PRECIO TAMBIÉN AQUÍ ---
       // Es vital guardar el precio REAL en el OrderItem para el historial
       const vPrice = parseFloat(variant.price || 0);
       const pPrice = parseFloat(variant.Product.price || 0);

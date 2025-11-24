@@ -7,7 +7,7 @@ const cors = require("cors");
 const path = require("path");
 const fs = require("fs");
 
-// --- 👇 NUEVAS IMPORTACIONES PARA GOOGLE AUTH ---
+// ---  IMPORTACIONES GOOGLE AUTH ---
 const session = require("express-session");
 const passport = require("passport");
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
@@ -28,7 +28,7 @@ if (!fs.existsSync(uploadsDirectory)) {
 app.use(cors());
 app.use(express.json());
 
-// --- 👇 NUEVO MIDDLEWARE DE SESIÓN Y PASSPORT ---
+// ---  MIDDLEWARE DE SESIÓN Y PASSPORT ---
 app.use(
   session({
     secret: process.env.SESSION_SECRET || "fallback_session_secret",
@@ -38,7 +38,6 @@ app.use(
 );
 app.use(passport.initialize());
 app.use(passport.session());
-// --- FIN DE NUEVO MIDDLEWARE ---
 
 // --- 👇 CONFIGURACIÓN DE ESTRATEGIA DE GOOGLE ---
 passport.use(
@@ -72,7 +71,7 @@ passport.use(
           await user.save();
         }
 
-        // --- 👇 ¡CORRECCIÓN! ENVIAR BIENVENIDA SI ES NUEVO ---
+        // --- 👇  ENVIAR BIENVENIDA SI ES NUEVO ---
         if (created) {
           try {
             await sendWelcomeEmail(user.email, user.username);
@@ -85,7 +84,6 @@ passport.use(
             );
           }
         }
-        // --- FIN DE CORRECCIÓN ---
 
         done(null, user);
       } catch (error) {

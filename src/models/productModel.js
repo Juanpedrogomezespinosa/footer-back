@@ -1,6 +1,5 @@
-// src/models/productModel.js
 const { DataTypes } = require("sequelize");
-const sequelize = require("../config/db"); // 1. Importar la instancia de Sequelize
+const sequelize = require("../config/db");
 
 const Product = sequelize.define(
   "Product",
@@ -23,15 +22,13 @@ const Product = sequelize.define(
       type: DataTypes.DECIMAL(10, 2),
       allowNull: false,
     },
-    // --- NUEVO CAMPO ---
     discountPrice: {
       type: DataTypes.DECIMAL(10, 2),
       allowNull: true,
-      field: "discount_price", // Mapea a la columna con guion bajo en la DB
+      field: "discount_price",
       comment: "Precio original antes del descuento (para mostrar tachado)",
     },
     color: {
-      // SÍ mantenemos 'color' para el color principal/agrupador
       type: DataTypes.STRING,
       allowNull: true,
     },
@@ -65,13 +62,11 @@ const Product = sequelize.define(
       allowNull: false,
       defaultValue: true,
     },
-    // --- ¡¡¡AÑADIDO PARA BORRADO LÓGICO!!! ---
     is_active: {
       type: DataTypes.BOOLEAN,
       allowNull: false,
       defaultValue: true, // Por defecto, todos los productos están activos
     },
-    // ----------------------------------------
   },
   {
     tableName: "products",
@@ -81,8 +76,5 @@ const Product = sequelize.define(
     updatedAt: "updated_at",
   }
 );
-
-// ELIMINADA TODA LA FUNCIÓN .associate()
-// index.js se encargará de esto.
 
 module.exports = Product;

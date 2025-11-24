@@ -41,7 +41,7 @@ const Rating = sequelize.define(
     indexes: [
       {
         unique: true,
-        fields: ["user_id", "product_id"], // Nombres en snake_case, no camelCase
+        fields: ["user_id", "product_id"],
       },
     ],
   }

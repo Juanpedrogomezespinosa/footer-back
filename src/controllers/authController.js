@@ -1,5 +1,3 @@
-// src/controllers/authController.js
-
 const { User } = require("../models");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
@@ -15,11 +13,8 @@ const { frontendUrl } = require("../config/env");
  * Función para generar un token JWT de autenticación (larga duración)
  */
 exports.generateToken = (user) => {
-  // --- 👇 ¡¡AQUÍ ESTÁ LA CORRECCIÓN!! ---
-  // El payload debe usar 'userId' para ser consistente
-  // con el resto de tu aplicación (como el authMiddleware)
   const payload = {
-    userId: user.id, // <-- Cambiado de 'id' a 'userId'
+    userId: user.id,
     username: user.username,
     email: user.email,
     role: user.role,
@@ -27,7 +22,6 @@ exports.generateToken = (user) => {
     lastName: user.lastName,
     phone: user.phone,
   };
-  // --- FIN DE LA CORRECCIÓN ---
 
   return jwt.sign(
     payload,
@@ -80,7 +74,7 @@ exports.register = async (req, res, next) => {
       googleId: null,
     });
 
-    const token = exports.generateToken(user); // Ahora genera el token correcto
+    const token = exports.generateToken(user);
 
     try {
       await sendWelcomeEmail(email, username);
@@ -136,7 +130,7 @@ exports.login = async (req, res, next) => {
       return res.status(401).json({ message: "Credenciales inválidas" });
     }
 
-    const token = exports.generateToken(user); // Ahora genera el token correcto
+    const token = exports.generateToken(user);
 
     return res.json({
       message: "Inicio de sesión exitoso",
@@ -156,8 +150,6 @@ exports.login = async (req, res, next) => {
     next(error);
   }
 };
-
-// --- (forgotPassword y resetPassword no cambian) ---
 
 exports.forgotPassword = async (req, res, next) => {
   try {

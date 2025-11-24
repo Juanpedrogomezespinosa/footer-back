@@ -13,7 +13,7 @@ const ProductImage = sequelize.define(
       type: DataTypes.INTEGER,
       allowNull: false,
       references: {
-        model: "products", // Nombre de la tabla de productos
+        model: "products",
         key: "id",
       },
       onDelete: "CASCADE",

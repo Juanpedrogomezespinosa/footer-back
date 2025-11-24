@@ -176,9 +176,6 @@ exports.updateProfile = async (req, res, next) => {
     user.lastName = lastName || null;
     user.phone = phone || null;
 
-    // --- LÓGICA DE CONTRASEÑA ELIMINADA DE AQUÍ ---
-    // if (password) { ... } ¡ELIMINADO!
-
     await user.save();
 
     return res.json({
@@ -244,9 +241,6 @@ exports.updateAvatar = async (req, res, next) => {
   }
 };
 
-//
-// --- ¡NUEVA FUNCIÓN AÑADIDA! ---
-//
 /**
  * Actualiza la contraseña del usuario de forma segura.
  */
