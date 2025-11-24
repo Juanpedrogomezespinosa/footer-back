@@ -36,7 +36,7 @@ exports.getAllProducts = async (request, response, next) => {
       is_new,
       minRating,
       page = 1,
-      limit = 18,
+      limit = 16,
       sortBy = "created_at",
       order = "DESC",
       showArchived,
