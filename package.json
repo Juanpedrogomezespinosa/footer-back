@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "axios": "^1.13.2",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
@@ -8,6 +9,7 @@
     "express": "^5.1.0",
     "express-session": "^1.18.2",
     "express-validator": "^7.2.1",
+    "form-data": "^4.0.5",
     "handlebars": "^4.7.8",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
@@ -29,6 +31,8 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "reset-db": "node src/resetDatabase.js",
-    "create-admin": "node src/scripts/createAdmin.js"
+    "create-admin": "node src/scripts/createAdmin.js",
+    "create-products": "node src/scripts/seedProducts.js",
+    "delete-products": "node src/scripts/deleteAllProducts.js"
   }
 }
