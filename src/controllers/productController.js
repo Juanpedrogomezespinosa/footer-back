@@ -61,29 +61,22 @@ exports.getAllProducts = async (request, response, next) => {
 
     const whereProduct = {};
 
-    // Filtro de archivados
     if (showArchived !== "true") {
       whereProduct.is_active = true;
     }
 
-    // Búsqueda por nombre (Fuzzy)
     if (name) whereProduct.name = { [Op.like]: `%${name}%` };
 
-    // Rango de precios
     if (minPrice || maxPrice) {
       whereProduct.price = {};
       if (minPrice) whereProduct.price[Op.gte] = Number(minPrice);
       if (maxPrice) whereProduct.price[Op.lte] = Number(maxPrice);
     }
 
-    // --- LOGICA DE FILTROS MEJORADA ---
-
-    // Marca (Array exacto)
     if (brand) {
       whereProduct.brand = Array.isArray(brand) ? { [Op.in]: brand } : brand;
     }
 
-    // Categoría (Convertir a minúsculas para coincidir con ENUM)
     if (category) {
       const categories = Array.isArray(category) ? category : [category];
       whereProduct.category = {
@@ -91,39 +84,31 @@ exports.getAllProducts = async (request, response, next) => {
       };
     }
 
-    // Género (Convertir a minúsculas para coincidir con ENUM)
     if (gender) {
       const genders = Array.isArray(gender) ? gender : [gender];
       whereProduct.gender = { [Op.in]: genders.map((g) => g.toLowerCase()) };
     }
 
-    // Material (Exacto o Array)
     if (material) {
       whereProduct.material = Array.isArray(material)
         ? { [Op.in]: material }
         : material;
     }
 
-    // Temporada (Convertir a minúsculas y manejar Array)
     if (season) {
       const seasons = Array.isArray(season) ? season : [season];
       whereProduct.season = { [Op.in]: seasons.map((s) => s.toLowerCase()) };
     }
 
-    // Nuevo / Usado
     if (is_new === "true") whereProduct.is_new = true;
     else if (is_new === "false") whereProduct.is_new = false;
 
-    // COLOR (Lógica Fuzzy + Array)
-    // Si recibimos ['Negro', 'Blanco'], buscamos: color LIKE '%Negro%' OR color LIKE '%Blanco%'
     if (color) {
       const colors = Array.isArray(color) ? color : [color];
       whereProduct.color = {
         [Op.or]: colors.map((c) => ({ [Op.like]: `%${c}%` })),
       };
     }
-
-    // ----------------------------------
 
     const whereVariant = {};
     let includeVariants = false;
@@ -285,9 +270,7 @@ exports.getAllProducts = async (request, response, next) => {
       totalPages,
       totalItems,
       nextPage: page < totalPages ? page + 1 : null,
-      // --- CORRECCIÓN AQUÍ: page - 1 en lugar de page + 1 ---
       prevPage: page > 1 ? page - 1 : null,
-      // -----------------------------------------------------
       products: productsResponse,
     });
   } catch (error) {
@@ -385,7 +368,8 @@ exports.getProductById = async (request, response, next) => {
       imagesByColor,
       variantsByColor,
       variants: productJson.variants,
-      images: undefined,
+      // --- CORRECCIÓN CRÍTICA: NO ELIMINAMOS 'images' ---
+      // images: undefined,  <-- ESTA LÍNEA SE HA BORRADO
     };
 
     const siblings = await Product.findAll({
@@ -592,7 +576,11 @@ exports.updateProduct = async (request, response, next) => {
       season,
       is_new,
       variants,
+      imagesToDelete,
+      imageMetadata,
     } = request.body;
+
+    const newImages = request.files;
 
     const parsedVariants = variants ? JSON.parse(variants) : undefined;
 
@@ -637,10 +625,95 @@ exports.updateProduct = async (request, response, next) => {
       }));
 
       for (const variant of variantData) {
-        await ProductVariantStock.upsert(variant, {
+        const existingVariant = await ProductVariantStock.findOne({
+          where: {
+            productId: id,
+            color: variant.color,
+            size: variant.size,
+          },
           transaction: t,
         });
+
+        if (existingVariant) {
+          existingVariant.stock = variant.stock;
+          existingVariant.price = variant.price;
+          await existingVariant.save({ transaction: t });
+        } else {
+          await ProductVariantStock.create(variant, { transaction: t });
+        }
       }
+    }
+
+    if (imagesToDelete) {
+      let idsToDelete = [];
+      try {
+        idsToDelete = JSON.parse(imagesToDelete);
+      } catch (e) {
+        console.warn("Error parseando imagesToDelete", e);
+      }
+
+      if (idsToDelete.length > 0) {
+        const images = await ProductImage.findAll({
+          where: { id: { [Op.in]: idsToDelete }, productId: id },
+          transaction: t,
+        });
+
+        for (const img of images) {
+          if (img.imageUrl && img.imageUrl.startsWith("/uploads/")) {
+            const filePath = path.join(
+              __dirname,
+              "..",
+              "uploads",
+              path.basename(img.imageUrl)
+            );
+            if (fs.existsSync(filePath)) {
+              fs.unlinkSync(filePath);
+            }
+          }
+          await img.destroy({ transaction: t });
+        }
+      }
+    }
+
+    if (newImages && newImages.length > 0) {
+      let parsedImageMetadata = [];
+      if (imageMetadata) {
+        try {
+          parsedImageMetadata = JSON.parse(imageMetadata);
+        } catch (err) {
+          console.warn("No se pudo parsear imageMetadata", err);
+        }
+      }
+
+      const maxOrderResult = await ProductImage.findOne({
+        where: { productId: id },
+        order: [["displayOrder", "DESC"]],
+        transaction: t,
+      });
+      let nextOrder = maxOrderResult ? maxOrderResult.displayOrder + 1 : 0;
+
+      const imagePromises = newImages.map((file) => {
+        const imageUrl = `/uploads/${file.filename}`;
+
+        const meta = parsedImageMetadata.find(
+          (m) => m.filename === file.originalname
+        );
+        const assignedColor = meta ? meta.color : product.color;
+
+        const imgCreation = ProductImage.create(
+          {
+            productId: id,
+            imageUrl: imageUrl,
+            displayOrder: nextOrder,
+            variantColor: assignedColor,
+          },
+          { transaction: t }
+        );
+        nextOrder++;
+        return imgCreation;
+      });
+
+      await Promise.all(imagePromises);
     }
 
     await t.commit();
@@ -669,15 +742,14 @@ exports.updateProduct = async (request, response, next) => {
     ) {
       console.error("Error de base de datos detallado:", error);
       return response.status(400).json({
-        message:
-          "Error en los datos enviados (probablemente un valor inválido para temporada o género).",
+        message: "Error en los datos enviados.",
       });
     }
 
     if (error instanceof SyntaxError) {
       return response
         .status(400)
-        .json({ message: "El formato de 'variants' no es un JSON válido." });
+        .json({ message: "El formato JSON enviado no es válido." });
     }
 
     console.error("Error en updateProduct:", error);
