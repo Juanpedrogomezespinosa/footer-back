@@ -73,6 +73,7 @@ const createOrder = async (req, res, next) => {
     const lineItems = [];
     const itemsForEmail = [];
 
+    // --- BUCLE 1: CÁLCULO DE TOTALES Y STRIPE ---
     for (const item of cartItems) {
       const variant = item.ProductVariantStock;
       const product = variant.Product;
@@ -84,10 +85,13 @@ const createOrder = async (req, res, next) => {
         });
       }
 
-      // --- CORRECCIÓN DE PRECIO ---
-      const unitPrice = variant.price
-        ? Number(variant.price)
-        : Number(product.price);
+      // --- CORRECCIÓN DE PRECIO (HERENCIA) ---
+      // Convertimos a Float para asegurar que comparamos números.
+      const vPrice = parseFloat(variant.price || 0);
+      const pPrice = parseFloat(product.price || 0);
+
+      // Regla: Si el precio de variante es > 0, gana. Si no, gana el precio base.
+      const unitPrice = vPrice > 0 ? vPrice : pPrice;
 
       productsTotal += item.quantity * unitPrice;
 
@@ -97,7 +101,7 @@ const createOrder = async (req, res, next) => {
           product_data: {
             name: `${product.name} (${variant.color} / ${variant.size})`,
           },
-          unit_amount: Math.round(unitPrice * 100),
+          unit_amount: Math.round(unitPrice * 100), // Stripe usa céntimos
         },
         quantity: item.quantity,
       });
@@ -152,18 +156,22 @@ const createOrder = async (req, res, next) => {
       { transaction: t }
     );
 
+    // --- BUCLE 2: GUARDADO EN BASE DE DATOS Y RESTA DE STOCK ---
     for (const item of cartItems) {
       const variant = item.ProductVariantStock;
-      const unitPrice = variant.price
-        ? Number(variant.price)
-        : Number(variant.Product.price);
+
+      // --- CORRECCIÓN DE PRECIO TAMBIÉN AQUÍ ---
+      // Es vital guardar el precio REAL en el OrderItem para el historial
+      const vPrice = parseFloat(variant.price || 0);
+      const pPrice = parseFloat(variant.Product.price || 0);
+      const finalPrice = vPrice > 0 ? vPrice : pPrice;
 
       await OrderItem.create(
         {
           orderId: order.id,
           productVariantStockId: item.productVariantStockId,
           quantity: item.quantity,
-          price: unitPrice,
+          price: finalPrice, // Guardamos el precio corregido
         },
         { transaction: t }
       );
@@ -200,9 +208,7 @@ const createOrder = async (req, res, next) => {
 };
 
 /**
- * --- ¡NUEVO! CANCELAR PEDIDO POR EL USUARIO ---
- * Permite cancelar si el estado es 'pendiente' o 'pagado'.
- * Devuelve el stock al inventario.
+ * --- CANCELAR PEDIDO POR EL USUARIO ---
  */
 const cancelOrder = async (req, res, next) => {
   const t = await sequelize.transaction();
@@ -210,7 +216,6 @@ const cancelOrder = async (req, res, next) => {
     const userId = req.user.id;
     const orderId = req.params.id;
 
-    // Buscamos el pedido y sus items
     const order = await Order.findOne({
       where: { id: orderId, userId },
       include: [{ model: OrderItem }],
@@ -222,7 +227,6 @@ const cancelOrder = async (req, res, next) => {
       return res.status(404).json({ message: "Pedido no encontrado." });
     }
 
-    // Solo permitimos cancelar si no ha sido enviado aún
     const cancellableStatuses = ["pendiente", "pagado"];
     if (!cancellableStatuses.includes(order.status)) {
       await t.rollback();
@@ -231,18 +235,15 @@ const cancelOrder = async (req, res, next) => {
       });
     }
 
-    // Actualizar estado
     order.status = "cancelado";
     await order.save({ transaction: t });
 
-    // --- DEVOLVER STOCK ---
     for (const item of order.OrderItems) {
       const variant = await ProductVariantStock.findByPk(
         item.productVariantStockId,
         { transaction: t }
       );
       if (variant) {
-        // Sumamos la cantidad cancelada al stock
         variant.stock += item.quantity;
         await variant.save({ transaction: t });
       }
@@ -431,7 +432,7 @@ const getOrderById = async (req, res, next) => {
 
 module.exports = {
   createOrder,
-  cancelOrder, // <--- Exportamos la nueva función
+  cancelOrder,
   getOrderHistory,
   getOrderById,
 };

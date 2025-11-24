@@ -7,9 +7,7 @@ const {
 } = require("../models");
 
 /**
- * --- ¡FUNCIÓN CORREGIDA PARA EVITAR ERROR 500! ---
- * Hemos eliminado la referencia a 'color' en ProductImage
- * porque esa columna no existe en tu base de datos.
+ * Obtiene el carrito del usuario con lógica de precios corregida.
  */
 const getCart = async (req, res, next) => {
   try {
@@ -28,8 +26,12 @@ const getCart = async (req, res, next) => {
                 {
                   model: ProductImage,
                   as: "images",
-                  // CORRECCIÓN: Eliminamos "color" de aquí para que no falle el SQL
-                  attributes: ["id", "imageUrl", "displayOrder"],
+                  attributes: [
+                    "id",
+                    "imageUrl",
+                    "displayOrder",
+                    "variantColor",
+                  ],
                   order: [["displayOrder", "ASC"]],
                 },
               ],
@@ -46,13 +48,27 @@ const getCart = async (req, res, next) => {
       const variant = itemJson.ProductVariantStock;
       const product = variant.Product;
 
-      // --- LÓGICA DE IMAGEN (SIMPLIFICADA) ---
-      // Al no tener columna de color en las imágenes, cogemos la primera disponible.
+      // 1. LÓGICA DE IMAGEN INTELIGENTE
+      // Intentamos buscar una imagen que coincida con el color de la variante.
+      // Si no hay, usamos la primera imagen disponible del producto.
       let finalImage = null;
-
       if (product.images && product.images.length > 0) {
-        finalImage = product.images[0].imageUrl;
+        const matchingImage = product.images.find(
+          (img) => img.variantColor === variant.color
+        );
+        finalImage = matchingImage
+          ? matchingImage.imageUrl
+          : product.images[0].imageUrl;
       }
+
+      // 2. LÓGICA DE PRECIO (HERENCIA) -> ¡AQUÍ ESTABA EL BUG!
+      // Si el precio de la variante es mayor que 0, lo usamos.
+      // Si es 0 (o null), usamos el precio base del producto.
+      const variantPrice = parseFloat(variant.price || 0);
+      const basePrice = parseFloat(product.price || 0);
+
+      // Esta es la regla de oro:
+      const finalPrice = variantPrice > 0 ? variantPrice : basePrice;
 
       return {
         id: itemJson.id,
@@ -60,21 +76,23 @@ const getCart = async (req, res, next) => {
         product: {
           id: product.id,
           name: product.name,
-          price: product.price, // Precio base
-          image: finalImage, // Imagen principal
+          price: basePrice, // Precio base original para referencia
+          image: finalImage,
         },
         variant: {
           id: variant.id,
           color: variant.color,
           size: variant.size,
           stock: variant.stock,
-          price: variant.price, // ¡ESTO ES LO IMPORTANTE! El precio de 11€ se envía bien.
+          // Enviamos el precio YA CALCULADO para que el front no se confunda
+          price: finalPrice,
         },
       };
     });
 
     res.json(plainCart);
   } catch (error) {
+    console.error("Error en getCart:", error);
     next(error);
   }
 };

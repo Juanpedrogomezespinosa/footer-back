@@ -1,3 +1,4 @@
+// src/services/paymentService.js
 const Stripe = require("stripe");
 const { stripeSecretKey } = require("../config/env");
 
@@ -31,7 +32,7 @@ exports.createCheckoutSession = async (lineItems, successUrl, cancelUrl) => {
 };
 
 /**
- * Método legacy para simular procesamiento de pago (puedes dejarlo o eliminarlo si migras a Stripe).
+ * Método legacy para simular procesamiento de pago.
  */
 exports.processPayment = async (order) => {
   if (!order || !order.total) {
