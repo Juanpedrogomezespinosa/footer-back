@@ -1,6 +1,7 @@
 const emailService = require("../services/emailService");
 
-exports.handleContactForm = async (req, res, next) => {
+exports.handleContactForm = (req, res, next) => {
+  // Nota: Quitamos 'async' porque no vamos a usar 'await' para bloquear la respuesta
   try {
     const { name, email, subject, message } = req.body;
 
@@ -11,26 +12,33 @@ exports.handleContactForm = async (req, res, next) => {
         .json({ message: "Todos los campos son obligatorios" });
     }
 
-    // 2. Enviar el email a la empresa (con los datos del usuario)
-    await emailService.sendContactInquiry({
-      name,
-      fromEmail: email,
-      subject,
-      message,
-    });
+    // 2. Iniciamos el envío de emails en segundo plano (Fire and Forget)
+    // No usamos 'await' para que el usuario reciba la respuesta "OK" inmediatamente.
+    emailService
+      .sendContactInquiry({
+        name,
+        fromEmail: email,
+        subject,
+        message,
+      })
+      .catch((err) =>
+        console.error("Error enviando consulta contacto:", err.message)
+      );
 
-    // 3. Enviar el email de confirmación al usuario
-    await emailService.sendContactConfirmation({
-      toEmail: email,
-      name,
-    });
+    emailService
+      .sendContactConfirmation({
+        toEmail: email,
+        name,
+      })
+      .catch((err) =>
+        console.error("Error enviando confirmación contacto:", err.message)
+      );
 
-    // 4. Responder al frontend con éxito
+    // 3. Responder al frontend con éxito INMEDIATAMENTE
     res.status(200).json({
       message: "Mensaje enviado con éxito. Gracias por contactarnos.",
     });
   } catch (error) {
-    // Tu errorHandler.js global capturará esto
     next(error);
   }
 };

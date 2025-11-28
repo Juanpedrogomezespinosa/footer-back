@@ -17,10 +17,6 @@ const {
 const { createCheckoutSession } = require("../services/paymentService");
 const { frontendUrl } = require("../config/env");
 
-/**
- * Crea una orden leyendo el carrito desde la BBDD, verifica stock,
- * calcula gastos de envío, resta el stock, y genera la sesión de pago.
- */
 const createOrder = async (req, res, next) => {
   const t = await sequelize.transaction();
   try {
@@ -51,12 +47,7 @@ const createOrder = async (req, res, next) => {
       include: [
         {
           model: ProductVariantStock,
-          include: [
-            {
-              model: Product,
-              as: "Product",
-            },
-          ],
+          include: [{ model: Product, as: "Product" }],
         },
       ],
       transaction: t,
@@ -69,9 +60,8 @@ const createOrder = async (req, res, next) => {
 
     let productsTotal = 0;
     const lineItems = [];
-    const itemsForEmail = [];
 
-    // --- BUCLE 1: CÁLCULO DE TOTALES Y STRIPE ---
+    // BUCLE 1
     for (const item of cartItems) {
       const variant = item.ProductVariantStock;
       const product = variant.Product;
@@ -79,15 +69,12 @@ const createOrder = async (req, res, next) => {
       if (item.quantity > variant.stock) {
         await t.rollback();
         return res.status(400).json({
-          message: `Stock insuficiente para ${product.name} (Talla: ${variant.size}, Color: ${variant.color}). Solo quedan ${variant.stock}.`,
+          message: `Stock insuficiente para ${product.name}. Solo quedan ${variant.stock}.`,
         });
       }
 
-      // Convertimos a Float para asegurar que comparamos números.
       const vPrice = parseFloat(variant.price || 0);
       const pPrice = parseFloat(product.price || 0);
-
-      // Regla: Si el precio de variante es > 0, gana. Si no, gana el precio base.
       const unitPrice = vPrice > 0 ? vPrice : pPrice;
 
       productsTotal += item.quantity * unitPrice;
@@ -98,17 +85,9 @@ const createOrder = async (req, res, next) => {
           product_data: {
             name: `${product.name} (${variant.color} / ${variant.size})`,
           },
-          unit_amount: Math.round(unitPrice * 100), // Stripe usa céntimos
+          unit_amount: Math.round(unitPrice * 100),
         },
         quantity: item.quantity,
-      });
-
-      itemsForEmail.push({
-        name: product.name,
-        size: variant.size,
-        color: variant.color,
-        quantity: item.quantity,
-        price: unitPrice,
       });
     }
 
@@ -132,9 +111,7 @@ const createOrder = async (req, res, next) => {
       lineItems.push({
         price_data: {
           currency: "eur",
-          product_data: {
-            name: shippingName,
-          },
+          product_data: { name: shippingName },
           unit_amount: Math.round(shippingCost * 100),
         },
         quantity: 1,
@@ -153,11 +130,9 @@ const createOrder = async (req, res, next) => {
       { transaction: t }
     );
 
-    // --- BUCLE 2: GUARDADO EN BASE DE DATOS Y RESTA DE STOCK ---
+    // BUCLE 2
     for (const item of cartItems) {
       const variant = item.ProductVariantStock;
-
-      // Es vital guardar el precio REAL en el OrderItem para el historial
       const vPrice = parseFloat(variant.price || 0);
       const pPrice = parseFloat(variant.Product.price || 0);
       const finalPrice = vPrice > 0 ? vPrice : pPrice;
@@ -167,7 +142,7 @@ const createOrder = async (req, res, next) => {
           orderId: order.id,
           productVariantStockId: item.productVariantStockId,
           quantity: item.quantity,
-          price: finalPrice, // Guardamos el precio corregido
+          price: finalPrice,
         },
         { transaction: t }
       );
@@ -203,9 +178,6 @@ const createOrder = async (req, res, next) => {
   }
 };
 
-/**
- * --- CANCELAR PEDIDO POR EL USUARIO ---
- */
 const cancelOrder = async (req, res, next) => {
   const t = await sequelize.transaction();
   try {
@@ -375,13 +347,13 @@ const getOrderById = async (req, res, next) => {
       item.Product = product;
       delete item.ProductVariantStock;
       delete item.Product.images;
-
       return item;
     });
 
+    // CAMBIO CRÍTICO: Manejo de estado y Emails NO bloqueante
     if (order.status === "pendiente") {
       order.status = "pagado";
-      await order.save();
+      await order.save(); // Esperamos a guardar en DB, esto es rápido
 
       const shippingCost = Number(orderJson.total) - productsTotal;
       const subtotal = productsTotal / 1.21;
@@ -394,31 +366,31 @@ const getOrderById = async (req, res, next) => {
         shippingCost: shippingCost.toFixed(2),
       };
 
-      try {
-        console.log("📧 (Confirmación) Enviando email a", orderJson.User.email);
-        await sendOrderConfirmationEmail(
-          orderJson.User.email,
-          orderJson.User.username,
-          itemsForEmail,
-          summaryData
-        );
-      } catch (emailError) {
-        console.error("❌ Error enviando email de confirmación:", emailError);
-      }
+      // NO HACEMOS AWAIT AQUÍ.
+      // Lanzamos el proceso de email en "segundo plano" para que no bloquee la respuesta al frontend.
+      sendOrderConfirmationEmail(
+        orderJson.User.email,
+        orderJson.User.username,
+        itemsForEmail,
+        summaryData
+      ).catch((err) =>
+        console.error(
+          "❌ Fallo email confirmación (segundo plano):",
+          err.message
+        )
+      );
 
-      try {
-        console.log("📧 (Admin) Enviando notificación de nuevo pedido...");
-        await sendNewOrderNotification(
-          orderJson.User,
-          orderJson,
-          itemsForEmail,
-          summaryData
-        );
-      } catch (adminEmailError) {
-        console.error("❌ Error enviando email al admin:", adminEmailError);
-      }
+      sendNewOrderNotification(
+        orderJson.User,
+        orderJson,
+        itemsForEmail,
+        summaryData
+      ).catch((err) =>
+        console.error("❌ Fallo email admin (segundo plano):", err.message)
+      );
     }
 
+    // Respondemos inmediatamente al usuario
     res.json(orderJson);
   } catch (error) {
     console.error("Error en getOrderById:", error);

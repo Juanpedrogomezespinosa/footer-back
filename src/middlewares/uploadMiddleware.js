@@ -1,29 +1,26 @@
 const multer = require("multer");
-const path = require("path");
-const fs = require("fs");
+const cloudinary = require("cloudinary").v2;
+const { CloudinaryStorage } = require("multer-storage-cloudinary");
+require("dotenv").config();
 
-// Asegurarse de que el directorio existe
-// Usamos path.join para subir un nivel desde 'src/middlewares' a 'src/uploads'
-const uploadDir = path.join(__dirname, "../uploads");
+// Configurar Cloudinary con las variables de entorno
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-  console.log("📁 Carpeta 'uploads' asegurada en: " + uploadDir);
-}
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadDir); // Ruta absoluta para evitar confusiones
-  },
-  filename: (req, file, cb) => {
-    // Generar nombre único: timestamp-random.ext
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
+// Configurar el almacenamiento en Cloudinary
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: "footer-products", // Nombre de la carpeta en Cloudinary
+    allowed_formats: ["jpg", "png", "jpeg", "webp"], // Formatos permitidos
+    // public_id: (req, file) => file.originalname, // Opcional: mantener nombre original
   },
 });
 
 const fileFilter = (req, file, cb) => {
-  // Aceptar solo imágenes
   if (file.mimetype.startsWith("image/")) {
     cb(null, true);
   } else {
@@ -38,7 +35,7 @@ const upload = multer({
   storage: storage,
   fileFilter: fileFilter,
   limits: {
-    fileSize: 10 * 1024 * 1024, // Límite aumentado a 10MB
+    fileSize: 10 * 1024 * 1024, // 10MB
   },
 });
 
