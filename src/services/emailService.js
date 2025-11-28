@@ -12,12 +12,18 @@ if (!EMAIL_USER || !EMAIL_PASS) {
   );
 }
 
-// Configuración del transportador para Gmail
+// Configuración del transportador para Gmail (USANDO PUERTO SEGURO 465)
+// Esto soluciona el error de "Connection Timeout" en la nube
 const transporter = nodemailer.createTransport({
-  service: "gmail",
+  host: "smtp.gmail.com",
+  port: 465,
+  secure: true, // true para 465, false para otros puertos
   auth: {
     user: EMAIL_USER,
     pass: EMAIL_PASS,
+  },
+  tls: {
+    rejectUnauthorized: false, // Ayuda si hay problemas de certificados en Render
   },
 });
 
@@ -63,6 +69,7 @@ async function sendEmail(to, subject, html, replyTo = null) {
     console.log(`📨 Correo enviado a ${to} | ID: ${info.messageId}`);
   } catch (error) {
     console.error("❌ Error al enviar el correo:", error.message || error);
+    // Lanzamos el error para que el controlador sepa que falló
     throw new Error("Error al enviar el correo.");
   }
 }
@@ -73,9 +80,15 @@ async function sendEmail(to, subject, html, replyTo = null) {
  * @param {string} name - Nombre del usuario
  */
 async function sendWelcomeEmail(to, name) {
-  const html = loadTemplate("welcome.html", { name });
-  console.log("🛠 Generando email de bienvenida para:", name);
-  await sendEmail(to, "¡Bienvenido a Footer! 👟", html);
+  try {
+    const html = loadTemplate("welcome.html", { name });
+    console.log("🛠 Generando email de bienvenida para:", name);
+    await sendEmail(to, "¡Bienvenido a Footer! 👟", html);
+  } catch (error) {
+    console.warn(
+      "⚠️ No se pudo enviar el email de bienvenida, pero el registro continúa."
+    );
+  }
 }
 
 /**
@@ -127,9 +140,15 @@ async function sendContactInquiry({ name, fromEmail, subject, message }) {
  * @param {string} name - Nombre del usuario
  */
 async function sendContactConfirmation({ toEmail, name }) {
-  const html = loadTemplate("contact-confirmation.html", { name });
-  console.log(`🛠 Enviando confirmación de contacto a ${toEmail}`);
-  await sendEmail(toEmail, "Hemos recibido tu consulta - Footer 👟", html);
+  try {
+    const html = loadTemplate("contact-confirmation.html", { name });
+    console.log(`🛠 Enviando confirmación de contacto a ${toEmail}`);
+    await sendEmail(toEmail, "Hemos recibido tu consulta - Footer 👟", html);
+  } catch (error) {
+    console.warn(
+      "⚠️ No se pudo enviar la confirmación de contacto al usuario."
+    );
+  }
 }
 
 /**
@@ -141,8 +160,6 @@ async function sendContactConfirmation({ toEmail, name }) {
  */
 async function sendNewOrderNotification(user, order, items, summaryData = {}) {
   const to = EMAIL_USER;
-  // Si summaryData viene vacío (compatibilidad), calculamos algo básico o dejamos vacío
-  // Pero con la actualización de orderController, debería venir lleno.
   const html = loadTemplate("new-order-notification.html", {
     user,
     order,
