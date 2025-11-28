@@ -2,41 +2,43 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 
-// Carpeta uploads dentro de src
-const uploadsPath = path.join(__dirname, "..", "uploads");
+// Asegurarse de que el directorio existe
+// Usamos path.join para subir un nivel desde 'src/middlewares' a 'src/uploads'
+const uploadDir = path.join(__dirname, "../uploads");
 
-if (!fs.existsSync(uploadsPath)) {
-  fs.mkdirSync(uploadsPath, { recursive: true });
-  console.log(
-    "📁 Carpeta 'uploads' creada automáticamente dentro de src (uploadMiddleware)."
-  );
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+  console.log("📁 Carpeta 'uploads' asegurada en: " + uploadDir);
 }
 
 const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadsPath);
+  destination: (req, file, cb) => {
+    cb(null, uploadDir); // Ruta absoluta para evitar confusiones
   },
-  filename: function (req, file, cb) {
+  filename: (req, file, cb) => {
+    // Generar nombre único: timestamp-random.ext
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    const ext = path.extname(file.originalname);
-    cb(null, uniqueSuffix + ext);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
   },
 });
 
-const upload = multer({
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // límite 5MB
-  fileFilter: (req, file, cb) => {
-    const filetypes = /jpeg|jpg|png|gif|webp/;
-    const mimetype = filetypes.test(file.mimetype);
-    const extname = filetypes.test(
-      path.extname(file.originalname).toLowerCase()
+const fileFilter = (req, file, cb) => {
+  // Aceptar solo imágenes
+  if (file.mimetype.startsWith("image/")) {
+    cb(null, true);
+  } else {
+    cb(
+      new Error("¡No es una imagen! Por favor sube solo archivos de imagen."),
+      false
     );
+  }
+};
 
-    if (mimetype && extname) {
-      return cb(null, true);
-    }
-    cb(new Error("Solo se permiten imágenes (jpeg, jpg, png, gif, webp)"));
+const upload = multer({
+  storage: storage,
+  fileFilter: fileFilter,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // Límite aumentado a 10MB
   },
 });
 
