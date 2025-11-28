@@ -7,12 +7,12 @@ const cors = require("cors");
 const path = require("path");
 const fs = require("fs");
 
-// ---  IMPORTACIONES GOOGLE AUTH ---
+// --- IMPORTACIONES GOOGLE AUTH ---
 const session = require("express-session");
 const passport = require("passport");
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const { User } = require("./models"); // Importamos el modelo User
-// --- 👇 ¡IMPORTAR SERVICIO DE EMAIL! ---
+// --- IMPORTAR SERVICIO DE EMAIL ---
 const { sendWelcomeEmail } = require("./services/emailService");
 // --- FIN DE NUEVAS IMPORTACIONES ---
 
@@ -24,11 +24,23 @@ if (!fs.existsSync(uploadsDirectory)) {
   console.log("📁 Carpeta 'uploads' creada automáticamente dentro de src.");
 }
 
-// Middlewares
-app.use(cors());
+// --------------------------------------------------------
+// 1. CONFIGURACIÓN DE CORS (Permitir Frontend)
+// --------------------------------------------------------
+app.use(
+  cors({
+    origin: [
+      "http://localhost:4200", // Desarrollo local
+      "https://footer-front.vercel.app", // Tu dominio de producción
+      "https://footer-ashy.vercel.app", // El alias que vi en tu error
+    ],
+    credentials: true, // Permite cookies y headers de autorización
+  })
+);
+
 app.use(express.json());
 
-// ---  MIDDLEWARE DE SESIÓN Y PASSPORT ---
+// --- MIDDLEWARE DE SESIÓN Y PASSPORT ---
 app.use(
   session({
     secret: process.env.SESSION_SECRET || "fallback_session_secret",
@@ -39,13 +51,19 @@ app.use(
 app.use(passport.initialize());
 app.use(passport.session());
 
-// --- 👇 CONFIGURACIÓN DE ESTRATEGIA DE GOOGLE ---
+// --- CONFIGURACIÓN DE ESTRATEGIA DE GOOGLE ---
+// Determinamos la URL de callback según el entorno
+const BASE_URL =
+  process.env.NODE_ENV === "production"
+    ? "https://footer-back.onrender.com"
+    : "http://localhost:3000";
+
 passport.use(
   new GoogleStrategy(
     {
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: "http://localhost:3000/api/auth/google/callback",
+      callbackURL: `${BASE_URL}/api/auth/google/callback`,
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
@@ -71,7 +89,7 @@ passport.use(
           await user.save();
         }
 
-        // --- 👇  ENVIAR BIENVENIDA SI ES NUEVO ---
+        // --- ENVIAR BIENVENIDA SI ES NUEVO ---
         if (created) {
           try {
             await sendWelcomeEmail(user.email, user.username);
@@ -124,7 +142,7 @@ const addressRoutes = require("./routes/addressRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const contactRoutes = require("./routes/contactRoutes");
 
-// 1. RUTAS API
+// 2. RUTAS API
 app.use("/api/products", productRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/auth", authenticationRoutes);
@@ -136,7 +154,7 @@ app.use("/api/addresses", addressRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/contact", contactRoutes);
 
-// 2. Servir archivos estáticos
+// 3. Servir archivos estáticos
 app.use("/uploads", express.static(uploadsDirectory));
 
 // --- MANEJADOR DE RUTA NO ENCONTRADA (404 JSON) ---
