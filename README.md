@@ -117,3 +117,13 @@ src/
 ├── utils/          # Helpers y utilidades
 └── uploads/        # Almacenamiento temporal de imágenes
 ```
+
+☁️ Despliegue
+Este proyecto está desplegado usando una arquitectura moderna en la nube:
+
+Backend: Render (Web Service)
+
+Base de Datos: Aiven (MySQL Cloud)
+
+✒️ Autor
+Juan Pedro Gómez Espinosa - GitHub
