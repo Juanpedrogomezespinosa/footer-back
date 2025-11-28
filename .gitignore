@@ -2,7 +2,7 @@
 node_modules/
 
 # Carpeta para imágenes subidas
-uploads/
+# uploads/  <-- ¡PONLE UN HASH DELANTE O BÓRRALA!
 
 # Archivos de entorno (variables secretas)
 .env
