@@ -4,63 +4,46 @@ const path = require("path");
 const Handlebars = require("handlebars");
 
 // Cargamos las variables de entorno
-// Si tu archivo .env está en la raíz y este archivo está en una subcarpeta, esto suele funcionar si ejecutas desde la raíz.
 require("dotenv").config();
 
-// 1. OBTENCIÓN Y LIMPIEZA DE CREDENCIALES
-const emailUserRaw = process.env.EMAIL_USER;
-const emailPassRaw = process.env.EMAIL_PASS;
+// 1. CONFIGURACIÓN DE CREDENCIALES
+// Usamos trim() para evitar errores por espacios accidentales al copiar de la web
+const EMAIL_HOST = process.env.EMAIL_HOST || "smtp-relay.brevo.com";
+const EMAIL_PORT = process.env.EMAIL_PORT || 587;
+const EMAIL_USER = process.env.EMAIL_USER ? process.env.EMAIL_USER.trim() : "";
+const EMAIL_PASS = process.env.EMAIL_PASS ? process.env.EMAIL_PASS.trim() : "";
 
-// Eliminamos posibles espacios en blanco de la contraseña (común al copiar de Google)
-const EMAIL_USER = emailUserRaw ? emailUserRaw.trim() : "";
-const EMAIL_PASS = emailPassRaw ? emailPassRaw.replace(/\s+/g, "") : "";
+// Este es el correo que verán tus clientes y donde recibirás las notificaciones de admin
+const PUBLIC_SENDER_EMAIL = "info.Footer@gmail.com";
 
-// --- DIAGNÓSTICO DE ARRANQUE (Puedes borrar esto cuando funcione) ---
-console.log("--- DEBUG EMAIL SERVICE ---");
-console.log(
-  "EMAIL_USER detectado:",
-  EMAIL_USER ? EMAIL_USER : "❌ NO DEFINIDO"
-);
-console.log(
-  "EMAIL_PASS detectado:",
-  EMAIL_PASS ? "✅ SÍ (Longitud: " + EMAIL_PASS.length + ")" : "❌ NO DEFINIDO"
-);
-console.log("---------------------------");
-// -------------------------------------------------------------------
-
+// Validación básica de credenciales
 if (!EMAIL_USER || !EMAIL_PASS) {
   console.warn(
-    "⚠️ ADVERTENCIA: EMAIL_USER o EMAIL_PASS no están definidos en el archivo .env. El envío de correos fallará."
+    "⚠️ ADVERTENCIA: Faltan credenciales (EMAIL_USER o EMAIL_PASS) en las variables de entorno."
   );
 }
 
-// 2. CONFIGURACIÓN DEL TRANSPORTADOR (GMAIL) - V3 (Puerto 465 / SSL Forzado)
+// 2. CONFIGURACIÓN DEL TRANSPORTADOR (BREVO / SMTP)
 const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 465, //  Usamos el puerto SSL directo
-  secure: true, // true para 465
+  host: EMAIL_HOST,
+  port: EMAIL_PORT,
+  secure: false, // Brevo usa el puerto 587 con STARTTLS, por lo que secure debe ser false
   auth: {
-    user: EMAIL_USER,
-    pass: EMAIL_PASS,
+    user: EMAIL_USER, // Tu usuario de login de Brevo (el código raro)
+    pass: EMAIL_PASS, // Tu clave API/SMTP de Brevo
   },
-  // Opciones de red para evitar timeouts en Render
   tls: {
-    rejectUnauthorized: false,
+    rejectUnauthorized: false, // Ayuda a evitar errores de certificados en servidores como Render
   },
-  connectionTimeout: 10000, // 10 segundos
-  greetingTimeout: 5000, // 5 segundos
-  socketTimeout: 10000, // 10 segundos para actividad del socket
-  debug: true,
-  logger: true,
+  // Tiempos de espera para evitar cortes de conexión en la nube
+  connectionTimeout: 10000,
+  greetingTimeout: 5000,
 });
 
 // 3. FUNCIÓN PARA CARGAR PLANTILLAS HTML
 function loadTemplate(templateName, data) {
   try {
-    // Asume que la carpeta 'emails' está un nivel arriba de este archivo.
-    // Estructura esperada:
-    // - /services/emailService.js
-    // - /emails/welcome.html
+    // Asume estructura: /services/emailService.js y /emails/archivo.html
     const templatePath = path.join(__dirname, "../emails", templateName);
 
     const templateSource = fs.readFileSync(templatePath, "utf8");
@@ -71,7 +54,7 @@ function loadTemplate(templateName, data) {
       `❌ Error cargando la plantilla de correo "${templateName}":`,
       error.message
     );
-    // Retornamos un HTML básico de respaldo para no romper el envío
+    // HTML de respaldo simple
     return `
       <div style="font-family: sans-serif; color: #333;">
         <h1>Hola ${data.name || "Usuario"}</h1>
@@ -92,7 +75,8 @@ async function sendEmail(to, subject, html, replyTo = null) {
 
   try {
     const mailOptions = {
-      from: `"Footer 👟" <${EMAIL_USER}>`,
+      // "Footer 👟" será el nombre visible, y usará tu Gmail público como remitente
+      from: `"Footer 👟" <${PUBLIC_SENDER_EMAIL}>`,
       to: to,
       subject: subject,
       html: html,
@@ -108,9 +92,8 @@ async function sendEmail(to, subject, html, replyTo = null) {
     );
     return info;
   } catch (error) {
-    console.error(`❌ ERROR CRÍTICO al enviar correo a ${to}:`);
+    console.error(`❌ ERROR al enviar correo a ${to}:`);
     console.error(`   Motivo: ${error.message}`);
-    // No lanzamos throw para no detener la ejecución del servidor, pero registramos el error.
   }
 }
 
@@ -134,8 +117,8 @@ async function sendOrderConfirmationEmail(to, name, items, summaryData) {
 }
 
 async function sendContactInquiry({ name, fromEmail, subject, message }) {
-  // Este correo se envía AL ADMIN (EMAIL_USER)
-  const to = EMAIL_USER;
+  // Las consultas de contacto van a TU correo público (Admin)
+  const to = PUBLIC_SENDER_EMAIL;
   const subjectToAdmin = `Nueva consulta de ${name}: ${subject}`;
 
   const html = `
@@ -152,7 +135,7 @@ async function sendContactInquiry({ name, fromEmail, subject, message }) {
     </div>
   `;
 
-  // Pasamos fromEmail como replyTo para que al dar "Responder" le contestes al cliente
+  // El replyTo es el cliente, para que al responder le escribas a él directamente
   await sendEmail(to, subjectToAdmin, html, fromEmail);
 }
 
@@ -162,8 +145,8 @@ async function sendContactConfirmation({ toEmail, name }) {
 }
 
 async function sendNewOrderNotification(user, order, items, summaryData = {}) {
-  // Notificación para el ADMINISTRADOR
-  const to = EMAIL_USER;
+  // Notificación para el ADMINISTRADOR (tu correo público)
+  const to = PUBLIC_SENDER_EMAIL;
 
   const html = loadTemplate("new-order-notification.html", {
     user,
