@@ -34,23 +34,24 @@ if (!EMAIL_USER || !EMAIL_PASS) {
   );
 }
 
-// 2. CONFIGURACIÓN DEL TRANSPORTADOR (GMAIL)
+// 2. CONFIGURACIÓN DEL TRANSPORTADOR (GMAIL) - V3 (Puerto 465 / SSL Forzado)
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
-  port: 587,
-  secure: false,
+  port: 465, //  Usamos el puerto SSL directo
+  secure: true, // true para 465
   auth: {
     user: EMAIL_USER,
     pass: EMAIL_PASS,
   },
+  // Opciones de red para evitar timeouts en Render
   tls: {
     rejectUnauthorized: false,
   },
-  family: 4, // <--- Fuerza a usar IPv4 (evita problemas de red en Render)
-  connectionTimeout: 10000, // Esperar máximo 10 segundos antes de cancelar
-  greetingTimeout: 5000, // Esperar máximo 5 segundos al saludo del servidor SMTP
-  debug: true, // Muestra logs técnicos en la consola
-  logger: true, // Imprime el log en la consola de Render
+  connectionTimeout: 10000, // 10 segundos
+  greetingTimeout: 5000, // 5 segundos
+  socketTimeout: 10000, // 10 segundos para actividad del socket
+  debug: true,
+  logger: true,
 });
 
 // 3. FUNCIÓN PARA CARGAR PLANTILLAS HTML
