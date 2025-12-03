@@ -16,7 +16,7 @@ const storage = new CloudinaryStorage({
   params: {
     folder: "footer-products", // Nombre de la carpeta en Cloudinary
     allowed_formats: ["jpg", "png", "jpeg", "webp"], // Formatos permitidos
-    // public_id: (req, file) => file.originalname, // Opcional: mantener nombre original
+    // public_id: (req, file) => file.originalname, // Dejamos que Cloudinary genere un ID único para evitar conflictos
   },
 });
 

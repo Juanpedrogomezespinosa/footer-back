@@ -1,5 +1,5 @@
 const bcrypt = require("bcrypt");
-const fs = require("fs"); // <-- ¡LÍNEA CORREGIDA!
+const fs = require("fs");
 const path = require("path");
 const { User, Order, OrderItem, Product } = require("../models");
 const sendEmail = require("../utils/email");
@@ -36,7 +36,6 @@ exports.deleteUser = async (req, res, next) => {
     const userIdToDelete = parseInt(req.params.id, 10);
     const requester = req.user;
 
-    // Corrección: req.user.id viene de authMiddleware
     if (requester.role !== "admin" && requester.id !== userIdToDelete) {
       return res.status(403).json({
         message: "No tiene permisos para eliminar este usuario",
@@ -97,7 +96,6 @@ exports.getProfileData = async (req, res, next) => {
       return res.status(404).json({ message: "Usuario no encontrado" });
     }
 
-    // Respuesta exitosa 200 JSON
     return res.json({
       id: user.id,
       username: user.username,
@@ -113,7 +111,7 @@ exports.getProfileData = async (req, res, next) => {
 };
 
 /**
- * Registro de usuario (sin cambios en la lógica de avatar).
+ * Registro de usuario
  */
 exports.registerUser = async (req, res, next) => {
   try {
@@ -136,7 +134,12 @@ exports.registerUser = async (req, res, next) => {
       <h1>Bienvenido ${name} a nuestra tienda</h1>
       <p>Gracias por registrarte. Esperamos que disfrutes comprando con nosotros.</p>
     `;
-    await sendEmail(email, "Bienvenido a nuestra tienda", html);
+    // Nota: Si sendEmail falla, no bloqueamos el registro, pero idealmente se maneja.
+    try {
+      await sendEmail(email, "Bienvenido a nuestra tienda", html);
+    } catch (emailError) {
+      console.error("Error enviando email de bienvenida:", emailError);
+    }
 
     return res
       .status(201)
@@ -147,13 +150,11 @@ exports.registerUser = async (req, res, next) => {
 };
 
 /**
- * Actualización de datos textuales del perfil (SIN incluir contraseña).
- * --- MODIFICADO PARA SEGURIDAD ---
+ * Actualización de datos textuales del perfil
  */
 exports.updateProfile = async (req, res, next) => {
   try {
     const userId = req.user.id;
-    // --- 'password' eliminado de la desestructuración ---
     const { username, email, lastName, phone } = req.body;
 
     const user = await User.findByPk(userId);
@@ -169,10 +170,7 @@ exports.updateProfile = async (req, res, next) => {
       user.email = email;
     }
 
-    if (username) {
-      user.username = username;
-    }
-
+    if (username) user.username = username;
     user.lastName = lastName || null;
     user.phone = phone || null;
 
@@ -195,7 +193,7 @@ exports.updateProfile = async (req, res, next) => {
 };
 
 /**
- * 🆕 NUEVA FUNCIÓN: Actualizar la imagen de perfil (avatar).
+ * 🆕 Actualizar la imagen de perfil (avatar) -> CORREGIDO PARA CLOUDINARY
  */
 exports.updateAvatar = async (req, res, next) => {
   try {
@@ -215,25 +213,33 @@ exports.updateAvatar = async (req, res, next) => {
         .json({ message: "No se proporcionó ningún archivo de imagen." });
     }
 
-    const newAvatarPath = `/uploads/${req.file.filename}`;
+    // CORRECCIÓN: Usamos req.file.path que contiene la URL completa de Cloudinary.
+    // Cloudinary devuelve la URL pública en 'path' o 'secure_url' al usar multer-storage-cloudinary.
+    const newAvatarUrl = req.file.path;
 
-    if (user.avatarUrl) {
+    // Lógica opcional para borrar avatar antiguo:
+    // Solo borramos si NO es una URL http (es decir, si era un archivo local antiguo).
+    // Si ya era de cloudinary, necesitaríamos la API de cloudinary para borrarlo (opcional por ahora).
+    if (user.avatarUrl && !user.avatarUrl.startsWith("http")) {
       try {
         const oldPath = path.join(__dirname, "..", user.avatarUrl);
         if (fs.existsSync(oldPath)) {
           fs.unlinkSync(oldPath);
         }
       } catch (err) {
-        console.warn("No se pudo eliminar el avatar anterior:", err.message);
+        console.warn(
+          "No se pudo eliminar el avatar local anterior:",
+          err.message
+        );
       }
     }
 
-    user.avatarUrl = newAvatarPath;
+    user.avatarUrl = newAvatarUrl;
     await user.save();
 
     return res.json({
       message: "Imagen de perfil actualizada correctamente.",
-      avatarUrl: newAvatarPath,
+      avatarUrl: newAvatarUrl,
     });
   } catch (error) {
     console.error("Error al actualizar la imagen de perfil:", error);
@@ -242,14 +248,13 @@ exports.updateAvatar = async (req, res, next) => {
 };
 
 /**
- * Actualiza la contraseña del usuario de forma segura.
+ * Actualiza la contraseña
  */
 exports.updatePassword = async (req, res, next) => {
   try {
     const userId = req.user.id;
     const { currentPassword, newPassword } = req.body;
 
-    // 1. Validar campos
     if (!currentPassword || !newPassword) {
       return res
         .status(400)
@@ -262,13 +267,11 @@ exports.updatePassword = async (req, res, next) => {
       });
     }
 
-    // 2. Obtener usuario
     const user = await User.findByPk(userId);
     if (!user) {
       return res.status(404).json({ message: "Usuario no encontrado" });
     }
 
-    // 3. Verificar contraseña actual
     const isMatch = await bcrypt.compare(currentPassword, user.password);
     if (!isMatch) {
       return res
@@ -276,7 +279,6 @@ exports.updatePassword = async (req, res, next) => {
         .json({ message: "La contraseña actual es incorrecta" });
     }
 
-    // 4. Hashear y guardar la nueva contraseña
     const hashedNewPassword = await bcrypt.hash(newPassword, 10);
     user.password = hashedNewPassword;
     await user.save();

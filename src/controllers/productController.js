@@ -493,9 +493,12 @@ exports.createProduct = async (request, response, next) => {
 
     await ProductVariantStock.bulkCreate(variantData, { transaction: t });
 
+    // CORRECCIÓN IMÁGENES: Usar file.path (URL Cloudinary)
     const imagePromises = images.map((file, index) => {
-      const imageUrl = `/uploads/${file.filename}`;
+      const imageUrl = file.path; // Aquí está la URL de Cloudinary
 
+      // Nota: Cloudinary puede cambiar el nombre del archivo, pero req.file.originalname
+      // se mantiene como el nombre original que subió el usuario, permitiendo matchear los metadatos.
       const meta = parsedImageMetadata.find(
         (m) => m.filename === file.originalname
       );
@@ -656,7 +659,15 @@ exports.updateProduct = async (request, response, next) => {
         });
 
         for (const img of images) {
-          if (img.imageUrl && img.imageUrl.startsWith("/uploads/")) {
+          // CORRECCIÓN: No borrar archivos con fs.unlinkSync si son de Cloudinary.
+          // Solo borramos si empieza explícitamente por /uploads/ y NO es una URL completa.
+          // Esto evita errores en Render.
+          if (
+            img.imageUrl &&
+            img.imageUrl.startsWith("/uploads/") &&
+            !img.imageUrl.startsWith("http")
+          ) {
+            // Es un archivo local legacy
             const filePath = path.join(
               __dirname,
               "..",
@@ -664,9 +675,17 @@ exports.updateProduct = async (request, response, next) => {
               path.basename(img.imageUrl)
             );
             if (fs.existsSync(filePath)) {
-              fs.unlinkSync(filePath);
+              try {
+                fs.unlinkSync(filePath);
+              } catch (e) {
+                console.warn("Fallo al borrar local", e);
+              }
             }
           }
+          // Si es Cloudinary, deberíamos usar cloudinary.uploader.destroy(),
+          // pero eso requiere el public_id que no estamos guardando explícitamente en la BD por ahora.
+          // Simplemente eliminamos el registro de la BD.
+
           await img.destroy({ transaction: t });
         }
       }
@@ -690,7 +709,8 @@ exports.updateProduct = async (request, response, next) => {
       let nextOrder = maxOrderResult ? maxOrderResult.displayOrder + 1 : 0;
 
       const imagePromises = newImages.map((file) => {
-        const imageUrl = `/uploads/${file.filename}`;
+        // CORRECCIÓN: Usar URL de Cloudinary
+        const imageUrl = file.path;
 
         const meta = parsedImageMetadata.find(
           (m) => m.filename === file.originalname
