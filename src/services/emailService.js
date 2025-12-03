@@ -35,18 +35,22 @@ if (!EMAIL_USER || !EMAIL_PASS) {
 }
 
 // 2. CONFIGURACIÓN DEL TRANSPORTADOR (GMAIL)
-// Usamos configuración explícita en lugar de "service: gmail" para evitar Timeouts en Render
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
   port: 587,
-  secure: false, // true para 465, false para otros puertos (587)
+  secure: false,
   auth: {
     user: EMAIL_USER,
     pass: EMAIL_PASS,
   },
   tls: {
-    rejectUnauthorized: false, // Ayuda a que no falle si Google cambia certificados
+    rejectUnauthorized: false,
   },
+  family: 4, // <--- Fuerza a usar IPv4 (evita problemas de red en Render)
+  connectionTimeout: 10000, // Esperar máximo 10 segundos antes de cancelar
+  greetingTimeout: 5000, // Esperar máximo 5 segundos al saludo del servidor SMTP
+  debug: true, // Muestra logs técnicos en la consola
+  logger: true, // Imprime el log en la consola de Render
 });
 
 // 3. FUNCIÓN PARA CARGAR PLANTILLAS HTML
