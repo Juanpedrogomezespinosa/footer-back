@@ -123,6 +123,13 @@ const addressRoutes = require("./routes/addressRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const contactRoutes = require("./routes/contactRoutes");
 
+// --- RUTA HEALTH CHECK (NUEVO) ---
+// Esto soluciona el error 404 en los logs de Render cuando verifica el servidor
+app.get("/", (req, res) => {
+  res.status(200).send("API Backend Footer funcionando correctamente 🚀");
+});
+// ---------------------------------
+
 // 2. RUTAS API
 app.use("/api/products", productRoutes);
 app.use("/api/users", userRoutes);
