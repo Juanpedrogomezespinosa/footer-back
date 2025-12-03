@@ -35,11 +35,17 @@ if (!EMAIL_USER || !EMAIL_PASS) {
 }
 
 // 2. CONFIGURACIÓN DEL TRANSPORTADOR (GMAIL)
+// Usamos configuración explícita en lugar de "service: gmail" para evitar Timeouts en Render
 const transporter = nodemailer.createTransport({
-  service: "gmail", // 'service: gmail' configura automáticamente host y puerto correctos
+  host: "smtp.gmail.com",
+  port: 587,
+  secure: false, // true para 465, false para otros puertos (587)
   auth: {
     user: EMAIL_USER,
     pass: EMAIL_PASS,
+  },
+  tls: {
+    rejectUnauthorized: false, // Ayuda a que no falle si Google cambia certificados
   },
 });
 
