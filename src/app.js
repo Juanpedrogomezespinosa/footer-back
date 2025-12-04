@@ -24,6 +24,7 @@ app.use(
       "http://localhost:4200",
       "https://footer-front.vercel.app",
       "https://footer-ashy.vercel.app",
+      "https://footer-shop.vercel.app",
     ],
     credentials: true,
   })
