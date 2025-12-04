@@ -8,51 +8,49 @@ require("dotenv").config();
 // 1. CONFIGURACIÓN DE CREDENCIALES
 const EMAIL_HOST = process.env.EMAIL_HOST || "smtp-relay.brevo.com";
 
-// Usamos el puerto 587 directamente, ya que es el estándar de Brevo que configuramos en Render
-const EMAIL_PORT = 587;
+// Usamos el puerto que definas en Render.
+// RECOMENDACIÓN PARA RENDER: Usar puerto 2525 si el 587 da timeout.
+const EMAIL_PORT = process.env.EMAIL_PORT
+  ? parseInt(process.env.EMAIL_PORT)
+  : 587;
 
-// Obtenemos las credenciales limpias de espacios
 const EMAIL_USER = process.env.EMAIL_USER ? process.env.EMAIL_USER.trim() : "";
 const EMAIL_PASS = process.env.EMAIL_PASS ? process.env.EMAIL_PASS.trim() : "";
-
-// Este es el remitente visible (Tu correo de Gmail verificado en Brevo)
 const PUBLIC_SENDER_EMAIL = "info.footer@gmail.com";
 
 if (!EMAIL_USER || !EMAIL_PASS) {
-  console.warn(
-    "⚠️ ADVERTENCIA: Faltan credenciales de correo (EMAIL_USER o EMAIL_PASS)."
-  );
+  console.warn("⚠️ ADVERTENCIA: Faltan credenciales de correo.");
 }
 
-// 2. CONFIGURACIÓN DEL TRANSPORTADOR (PUERTO 587 / STARTTLS)
+// 2. CONFIGURACIÓN DEL TRANSPORTADOR
 const transporter = nodemailer.createTransport({
   host: EMAIL_HOST,
   port: EMAIL_PORT,
-  secure: false, // IMPORTANTE: Para el puerto 587, secure debe ser false (STARTTLS)
+  secure: false, // Tanto el puerto 587 como el 2525 usan STARTTLS (secure: false)
   auth: {
-    user: EMAIL_USER, // Tu usuario de Brevo (9d3f...)
-    pass: EMAIL_PASS, // Tu clave SMTP
+    user: EMAIL_USER,
+    pass: EMAIL_PASS,
   },
   tls: {
-    rejectUnauthorized: false, // Ayuda a la compatibilidad en servidores cloud como Render
+    rejectUnauthorized: false,
+    ciphers: "SSLv3",
   },
-  // Tiempos de espera para diagnósticos
+  // --- CONFIGURACIÓN DE RED CRÍTICA PARA RENDER ---
+  family: 4, // <--- ¡IMPORTANTE! Fuerza IPv4. Node 18+ falla con IPv6 en Render a veces.
   connectionTimeout: 10000,
   greetingTimeout: 5000,
-  debug: true, // Muestra logs detallados del proceso SMTP
-  logger: true, // Muestra los logs en la consola de Render
+  debug: true,
+  logger: true,
 });
 
-// --- VERIFICACIÓN DE CONEXIÓN AL ARRANCAR ---
+// --- VERIFICACIÓN DE CONEXIÓN ---
 transporter.verify(function (error, success) {
   if (error) {
-    console.error(
-      "❌ ERROR CRÍTICO: No se pudo conectar al servidor de correos (Brevo):"
-    );
+    console.error(`❌ ERROR CRÍTICO SMTP (Puerto ${EMAIL_PORT}):`);
     console.error(error);
   } else {
     console.log(
-      "✅ CONEXIÓN SMTP EXITOSA: El servidor está listo para enviar correos (Puerto 587)."
+      `✅ CONEXIÓN SMTP EXITOSA (Puerto ${EMAIL_PORT}). Listo para enviar.`
     );
   }
 });
@@ -69,26 +67,21 @@ function loadTemplate(templateName, data) {
       `❌ Error cargando plantilla "${templateName}":`,
       error.message
     );
-    // HTML de respaldo simple
     return `
       <div style="font-family: sans-serif;">
         <h1>Hola ${data.name || "Usuario"}</h1>
-        <p>No se pudo cargar el diseño del correo, pero aquí tienes la información importante.</p>
+        <p>Mensaje de Footer.</p>
       </div>
     `;
   }
 }
 
-// 4. FUNCIÓN GENÉRICA DE ENVÍO DE CORREO
+// 4. FUNCIÓN DE ENVÍO
 async function sendEmail(to, subject, html, replyTo = null) {
-  if (!EMAIL_USER || !EMAIL_PASS) {
-    console.error("❌ Envío cancelado: Faltan credenciales.");
-    return;
-  }
+  if (!EMAIL_USER || !EMAIL_PASS) return;
 
   try {
     const mailOptions = {
-      // Usamos el PUBLIC_SENDER_EMAIL para que el cliente vea "info.footer@gmail.com"
       from: `"Footer 👟" <${PUBLIC_SENDER_EMAIL}>`,
       to: to,
       subject: subject,
@@ -97,9 +90,7 @@ async function sendEmail(to, subject, html, replyTo = null) {
     };
 
     const info = await transporter.sendMail(mailOptions);
-    console.log(
-      `📨 Correo enviado exitosamente a: ${to} | ID: ${info.messageId}`
-    );
+    console.log(`📨 Enviado a: ${to} | ID: ${info.messageId}`);
     return info;
   } catch (error) {
     console.error(`❌ ERROR al enviar correo a ${to}:`);
@@ -107,8 +98,7 @@ async function sendEmail(to, subject, html, replyTo = null) {
   }
 }
 
-// 5. EXPORTACIONES (FUNCIONES ESPECÍFICAS)
-
+// 5. EXPORTACIONES
 async function sendWelcomeEmail(to, name) {
   const html = loadTemplate("welcome.html", { name });
   await sendEmail(to, "¡Bienvenido a Footer! 👟", html);
@@ -127,32 +117,16 @@ async function sendOrderConfirmationEmail(to, name, items, summaryData) {
 }
 
 async function sendContactInquiry({ name, fromEmail, subject, message }) {
-  // Enviamos la notificación AL ADMIN (que es el email público)
-  const html = `
-    <div style="font-family: sans-serif;">
-       <h3>Nueva Consulta Web</h3>
-       <p><strong>De:</strong> ${name} (${fromEmail})</p>
-       <p><strong>Asunto:</strong> ${subject}</p>
-       <hr/>
-       <p>${message.replace(/\n/g, "<br>")}</p>
-    </div>
-  `;
-  // Usamos fromEmail como replyTo para responder directamente al cliente
-  await sendEmail(
-    PUBLIC_SENDER_EMAIL,
-    `Nueva consulta: ${subject}`,
-    html,
-    fromEmail
-  );
+  const html = `<p><strong>De:</strong> ${name} (${fromEmail})</p><p>${message}</p>`;
+  await sendEmail(PUBLIC_SENDER_EMAIL, `Consulta: ${subject}`, html, fromEmail);
 }
 
 async function sendContactConfirmation({ toEmail, name }) {
   const html = loadTemplate("contact-confirmation.html", { name });
-  await sendEmail(toEmail, "Hemos recibido tu consulta - Footer 👟", html);
+  await sendEmail(toEmail, "Recibimos tu consulta - Footer 👟", html);
 }
 
 async function sendNewOrderNotification(user, order, items, summaryData = {}) {
-  // Notificación para el ADMIN
   const html = loadTemplate("new-order-notification.html", {
     user,
     order,
