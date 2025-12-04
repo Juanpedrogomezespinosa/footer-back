@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Nueva Consulta - Admin Footer</title>
+    <style>
+      body {
+        font-family: "Poppins", Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        background-color: #f9fafb;
+      }
+      .container {
+        width: 90%;
+        max-width: 600px;
+        margin: 20px auto;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        overflow: hidden;
+        background: #ffffff;
+      }
+      .header {
+        background-color: #111827;
+        color: #ffffff;
+        padding: 25px 30px;
+        text-align: center;
+      }
+      .header h1 {
+        margin: 0;
+        font-size: 28px;
+        color: #ffffff;
+        font-weight: 700;
+      }
+      .content {
+        padding: 30px;
+      }
+      .content h2 {
+        color: #111827;
+        margin-top: 0;
+        border-bottom: 2px solid #ff5a1f;
+        padding-bottom: 10px;
+        display: inline-block;
+      }
+      .info-box {
+        background-color: #f3f4f6;
+        padding: 15px;
+        border-radius: 5px;
+        margin-bottom: 20px;
+      }
+      .info-row {
+        margin-bottom: 10px;
+        font-size: 15px;
+        color: #333;
+      }
+      .label {
+        font-weight: bold;
+        color: #111827;
+      }
+      .message-box {
+        background-color: #ffffff;
+        border: 1px solid #e5e7eb;
+        padding: 20px;
+        border-radius: 5px;
+        color: #333;
+        line-height: 1.6;
+        white-space: pre-wrap;
+      }
+      .footer {
+        font-size: 13px;
+        color: #777;
+        text-align: center;
+        margin-top: 20px;
+        padding: 20px 30px;
+        background-color: #f9f9f9;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>Formulario de contacto📝</h1>
+      </div>
+      <div class="content">
+        <h2>Nueva Consulta Web</h2>
+
+        <div class="info-box">
+          <div class="info-row"><span class="label">De:</span> {{name}}</div>
+          <div class="info-row">
+            <span class="label">Email:</span>
+            <a href="mailto:{{fromEmail}}" style="color: #ff5a1f"
+              >{{fromEmail}}</a
+            >
+          </div>
+          <div class="info-row">
+            <span class="label">Asunto:</span> {{subject}}
+          </div>
+        </div>
+
+        <p class="label">Mensaje:</p>
+        <div class="message-box">{{message}}</div>
+      </div>
+      <div class="footer">
+        <p>Este es un mensaje automático del formulario de contacto.</p>
+        <p>
+          Puedes responder directamente a este correo para contestar al cliente.
+        </p>
+      </div>
+    </div>
+  </body>
+</html>

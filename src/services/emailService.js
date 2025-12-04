@@ -117,8 +117,21 @@ async function sendOrderConfirmationEmail(to, name, items, summaryData) {
 }
 
 async function sendContactInquiry({ name, fromEmail, subject, message }) {
-  const html = `<p><strong>De:</strong> ${name} (${fromEmail})</p><p>${message}</p>`;
-  await sendEmail(PUBLIC_SENDER_EMAIL, `Consulta: ${subject}`, html, fromEmail);
+  // Cargamos la nueva plantilla bonita que acabamos de crear
+  const html = loadTemplate("contact-inquiry.html", {
+    name,
+    fromEmail,
+    subject,
+    message,
+  });
+
+  // Usamos fromEmail como replyTo para responder directamente al cliente
+  await sendEmail(
+    PUBLIC_SENDER_EMAIL,
+    `Nueva consulta: ${subject}`,
+    html,
+    fromEmail
+  );
 }
 
 async function sendContactConfirmation({ toEmail, name }) {
