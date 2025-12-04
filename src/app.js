@@ -2,15 +2,10 @@ require("dotenv").config();
 
 const express = require("express");
 const cors = require("cors");
-// const path = require("path"); // Ya no necesitamos path para uploads
-// const fs = require("fs");     // Ya no necesitamos fs para uploads
-
-// --- IMPORTACIONES GOOGLE AUTH ---
 const session = require("express-session");
 const passport = require("passport");
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const { User } = require("./models");
-// --- IMPORTAR SERVICIO DE EMAIL ---
 const { sendWelcomeEmail } = require("./services/emailService");
 
 const app = express();
@@ -24,7 +19,8 @@ app.use(
       "http://localhost:4200",
       "https://footer-front.vercel.app",
       "https://footer-ashy.vercel.app",
-      "https://footer-shop.vercel.app",
+      "https://footer-shop.vercel.app", // <--- TU NUEVA URL
+      process.env.FRONTEND_URL, // También permitimos lo que diga la variable de entorno
     ],
     credentials: true,
   })
@@ -81,12 +77,10 @@ passport.use(
         }
 
         if (created) {
-          // Enviamos el email sin await para no bloquear el login
           sendWelcomeEmail(user.email, user.username).catch((err) =>
             console.warn("⚠️ Error envío email bienvenida Google:", err.message)
           );
         }
-
         done(null, user);
       } catch (error) {
         done(error, null);
@@ -95,10 +89,7 @@ passport.use(
   )
 );
 
-passport.serializeUser((user, done) => {
-  done(null, user.id);
-});
-
+passport.serializeUser((user, done) => done(null, user.id));
 passport.deserializeUser(async (id, done) => {
   try {
     const user = await User.findByPk(id);
@@ -108,11 +99,10 @@ passport.deserializeUser(async (id, done) => {
   }
 });
 
-// Importar middlewares
+// Importar middlewares y rutas
 const authenticationMiddleware = require("./middlewares/authMiddleware");
 const errorHandlingMiddleware = require("./middlewares/errorHandler");
 
-// Importar rutas
 const productRoutes = require("./routes/productRoutes");
 const userRoutes = require("./routes/userRoutes");
 const authenticationRoutes = require("./routes/authRoutes");
@@ -124,12 +114,10 @@ const addressRoutes = require("./routes/addressRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const contactRoutes = require("./routes/contactRoutes");
 
-// --- RUTA HEALTH CHECK (NUEVO) ---
-// Esto soluciona el error 404 en los logs de Render cuando verifica el servidor
+// --- RUTA HEALTH CHECK ---
 app.get("/", (req, res) => {
   res.status(200).send("API Backend Footer funcionando correctamente 🚀");
 });
-// ---------------------------------
 
 // 2. RUTAS API
 app.use("/api/products", productRoutes);
@@ -143,16 +131,12 @@ app.use("/api/addresses", addressRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/contact", contactRoutes);
 
-// NOTA: Eliminamos app.use("/uploads"...) porque ahora las imágenes vienen de Cloudinary
-
-// --- MANEJADOR DE RUTA NO ENCONTRADA (404 JSON) ---
 app.use((req, res, next) => {
   const error = new Error(`Ruta de API no encontrada: ${req.originalUrl}`);
   error.status = 404;
   next(error);
 });
 
-// Middleware para manejo de errores
 app.use(errorHandlingMiddleware);
 
 module.exports = app;
