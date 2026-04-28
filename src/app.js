@@ -5,7 +5,7 @@ const cors = require("cors");
 const session = require("express-session");
 const passport = require("passport");
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
-const { User } = require("./models");
+const { User, sequelize } = require("./models");
 const { sendWelcomeEmail } = require("./services/emailService");
 
 const app = express();
@@ -23,7 +23,7 @@ app.use(
       process.env.FRONTEND_URL, // También permitimos lo que diga la variable de entorno
     ],
     credentials: true,
-  })
+  }),
 );
 
 app.use(express.json());
@@ -34,7 +34,7 @@ app.use(
     secret: process.env.SESSION_SECRET || "fallback_secret",
     resave: false,
     saveUninitialized: false,
-  })
+  }),
 );
 app.use(passport.initialize());
 app.use(passport.session());
@@ -78,15 +78,18 @@ passport.use(
 
         if (created) {
           sendWelcomeEmail(user.email, user.username).catch((err) =>
-            console.warn("⚠️ Error envío email bienvenida Google:", err.message)
+            console.warn(
+              "⚠️ Error envío email bienvenida Google:",
+              err.message,
+            ),
           );
         }
         done(null, user);
       } catch (error) {
         done(error, null);
       }
-    }
-  )
+    },
+  ),
 );
 
 passport.serializeUser((user, done) => done(null, user.id));
@@ -117,6 +120,20 @@ const contactRoutes = require("./routes/contactRoutes");
 // --- RUTA HEALTH CHECK ---
 app.get("/", (req, res) => {
   res.status(200).send("API Backend Footer funcionando correctamente 🚀");
+});
+
+// --- NUEVA RUTA PING PARA UPTIMEROBOT ---
+app.get("/ping", async (req, res) => {
+  try {
+    // Ejecuta una consulta súper ligera para mantener la conexión viva con Aiven
+    if (sequelize) {
+      await sequelize.query("SELECT 1+1 AS result");
+    }
+    res.status(200).send("¡Backend y Base de Datos despiertos! 🟢");
+  } catch (error) {
+    console.error("Error en el ping a la BD:", error);
+    res.status(500).send("Error conectando a la BD");
+  }
 });
 
 // 2. RUTAS API
